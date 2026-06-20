@@ -45,10 +45,11 @@ unreal-mcp-skills/
 │   └── openai.yaml                   # Codex/OpenAI agent setup
 └── references/
     ├── mcp-tools.md                  # Full MCP toolset reference
-    └── sample-configs/
-        ├── mcp-config.json           # Claude Code / Cursor .mcp.json sample
-        ├── mcp-config.toml           # Codex .codex/config.toml sample
-        └── mcp-config-gemini.json    # Gemini .gemini/settings.json sample
+    └── sample-mcp-configs/           # Sample MCP configs (copy to project root)
+        ├── .mcp.json                 # Claude Code config
+        ├── .cursor/mcp.json          # Cursor config
+        ├── .codex/config.toml        # Codex config
+        └── .gemini/settings.json     # Gemini config
 ```
 
 ## Supported Clients
