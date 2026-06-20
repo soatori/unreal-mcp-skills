@@ -117,7 +117,7 @@ This merges the Unreal MCP server into the config file in the project root (exis
 | Cursor | `.cursor/mcp.json` | `"url": "..."` (no type field) |
 | Gemini | `.gemini/settings.json` | `"httpUrl": "..."` |
 
-Full sample configs are in `references/sample-mcp-configs/` (copy the relevant files to your project root).
+Full sample configs are in `references/examples/` (copy the relevant files to your project root).
 
 ### 4. Connect the Agent
 
@@ -148,6 +148,36 @@ If no tools appear, see the Debugging section in `SKILL.md`.
 | Tools not visible after connect | Run `ModelContextProtocol.RefreshTools`; reconnect the agent from the project root |
 | Schema looks stale | Reconnect the client; regenerated configs merge with existing entries (except Codex TOML) |
 | `call_tool` returns `Unknown tool` | Use the short tool name with `toolset_name`, not the fully qualified name |
+
+## Terminal Plugin (Optional)
+
+The Terminal plugin embeds a terminal panel inside the editor, allowing the entire AI agent workflow to stay in a single window.
+
+### Setup
+
+1. Enable the **Terminal** plugin (Edit > Plugins, search "Terminal"). Restart when prompted.
+2. Open Editor Preferences > General > Terminal.
+3. Add entries to **Startup Commands** in this order:
+
+   **Windows (cmd.exe):**
+   ```
+   set TERM=xterm-256color
+   cd /d "<project-root>"
+   claude
+   ```
+
+   **Unix shells (bash/zsh):**
+   ```bash
+   export TERM=xterm-256color
+   cd "<project-root>"
+   claude
+   ```
+
+The explicit `cd` is required because the Terminal panel starts in `FPaths::RootDir()`, which may not match where `.mcp.json` was generated. The `TERM` variable prevents degraded terminal mode and raw escape sequences.
+
+### Usage
+
+After setup, open the Terminal panel in the editor. The AI agent launches automatically with the MCP connection already configured. No separate terminal window needed.
 
 ## Tool Search
 
