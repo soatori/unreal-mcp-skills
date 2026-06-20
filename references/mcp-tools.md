@@ -1,17 +1,17 @@
-# UE 5.8 Unreal MCP Tools Reference
+# Unreal MCP Tools Reference
 
-Use this reference after `SKILL.md` triggers and the task needs concrete UE 5.8 MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official UE 5.8 `ModelContextProtocol` / Unreal MCP path only.
+Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` / Unreal MCP path only.
 
-Primary evidence should come from the live editor schemas returned by `describe_toolset`, local UE 5.8 source, and Epic documentation. Public orientation sources:
+Primary evidence should come from the live editor schemas returned by `describe_toolset`, local UE source, and Epic documentation. Public orientation sources:
 
-- [Epic UE 5.8 Unreal MCP documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor?lang=en-US)
+- [Epic Unreal MCP documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor?lang=en-US)
 - [Unreal Engine 5.8 release announcement](https://www.unrealengine.com/news/unreal-engine-5-8-is-now-available)
 - [EpicGames unreal-mcp skill](https://raw.githubusercontent.com/EpicGames/unreal-engine-skills-for-claude-code-plugin/main/skills/unreal-mcp/SKILL.md)
 - [EpicGames unreal-mcp operations reference](https://raw.githubusercontent.com/EpicGames/unreal-engine-skills-for-claude-code-plugin/main/skills/unreal-mcp/references/operations.md)
 
 ## Architecture
 
-UE 5.8 MCP has three practical layers:
+Unreal MCP has three practical layers:
 
 | Layer | Plugin or path | Role |
 |---|---|---|
@@ -69,7 +69,7 @@ Client config notes:
 
 ## Tool Search
 
-UE 5.8 defaults to Tool Search mode when `bEnableToolSearch=true`.
+Unreal MCP defaults to Tool Search mode when `bEnableToolSearch=true`.
 
 | Meta-tool | Purpose |
 |---|---|
@@ -168,7 +168,7 @@ These are the Toolsets most commonly present when `ModelContextProtocol`, `Tools
 
 ### Toolset Plugin Use Matrix
 
-These plugins exist in the UE 5.8 source under `Engine/Plugins/Experimental/Toolsets/*`. Enable only the needed plugin, restart the editor when required, run `list_toolsets`, then use `describe_toolset` for exact schemas.
+These plugins exist in the UE source under `Engine/Plugins/Experimental/Toolsets/*`. Enable only the needed plugin, restart the editor when required, run `list_toolsets`, then use `describe_toolset` for exact schemas.
 
 | Category | Toolset plugin or Toolset | Use for |
 |---|---|---|
@@ -345,7 +345,7 @@ Interpretation rules:
 
 ## AgentSkillToolset
 
-`ToolsetRegistry.AgentSkillToolset` exposes these tools in current UE 5.8 schemas:
+`ToolsetRegistry.AgentSkillToolset` exposes these tools in current schemas:
 
 | Tool | Arguments | Result | Notes |
 |---|---|---|---|
@@ -415,7 +415,7 @@ Tool Search meta-tools are also part of the editor-only adapter. Cooked-build di
 
 ## Limits And Diagnostics
 
-- UE 5.8 MCP is experimental; API and schema details may change.
+- Unreal MCP is experimental; API and schema details may change.
 - Supported transports are HTTP and Server-Sent Events only; `stdio` and WebSocket are not supported.
 - Default binding is loopback/localhost only. Non-loopback `Origin` headers are rejected.
 - There is no authentication layer. Do not expose Unreal MCP beyond the local machine.
@@ -456,7 +456,7 @@ Keep these public examples out of the official UE MCP capability model:
 
 | Example type | What it can inform | What it must not imply |
 |---|---|---|
-| Jianying/CapCut MCP projects | General automation patterns and the need to distinguish runtime control from file/API wrappers | UE 5.8 Toolset names, Unreal Editor capabilities, or official `ModelContextProtocol` behavior |
-| Third-party Unreal MCP projects | Task ideas such as level generation, viewport verification, Blueprint automation, and project analysis | Replacement for official UE 5.8 Tool Search, ToolsetRegistry, or schemas returned by `describe_toolset` |
+| Jianying/CapCut MCP projects | General automation patterns and the need to distinguish runtime control from file/API wrappers | Toolset names, Unreal Editor capabilities, or official `ModelContextProtocol` behavior |
+| Third-party Unreal MCP projects | Task ideas such as level generation, viewport verification, Blueprint automation, and project analysis | Replacement for official Tool Search, ToolsetRegistry, or schemas returned by `describe_toolset` |
 
-If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. UE 5.8 official Unreal MCP controls the Unreal Editor, not Jianying/CapCut.
+If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. Official Unreal MCP controls the Unreal Editor, not Jianying/CapCut.
