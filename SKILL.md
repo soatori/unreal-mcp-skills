@@ -128,6 +128,12 @@ When the live schema marks `blueprint`, `graph`, `node`, or class/object inputs 
 - When project-specific conventions matter, use `AgentSkillToolset.ListSkills` and `AgentSkillToolset.GetSkills` before acting.
 - Before save, compile, plugin, config, PIE, test, asset, or graph operations, inspect current state with the corresponding read-only Toolset operation when available.
 
+- Mind PIE. Editor-only tools (asset creation in particular) behave differently while Play-in-Editor is active. If a result looks wrong, check whether PIE is running and stop it if so.
+
+- Save first, then save again. Tell the user to save the project before any bulk change, and again after. MCP edits are not always undoable, especially across compilation boundaries. Treat anything that touches multiple assets as a destructive operation that needs a recovery point.
+
+- If the tool registry is in a bad state and you want a clean restart, run `ModelContextProtocol.StopServer` followed by `ModelContextProtocol.StartServer [port]`.
+
 Risk levels:
 
 - Read-only: `list_toolsets`, `describe_toolset`, `get_current_level`, `list_graphs`, `get_graph`, `read_graph_dsl`, `find_nodes`, `get_node_infos`, `get_connected_subgraph`, `GetLogEntries`, `GetSelectedAssets`, `GetOpenAssets`, `ListSkills`, and `GetSkills`.
