@@ -7,194 +7,194 @@ Agent guidance skill for operating the Unreal Editor through Epic's official **M
 > **Supported version:** UE 5.8+
 > Learn to use this Experimental feature, but use caution when shipping with it.
 
-## 功能说明
+## Features
 
-本技能让 AI 编程代理（Claude Code、Codex、Cursor、VS Code、Gemini CLI）能够通过 Epic 官方 MCP 协议操控 UE 编辑器，覆盖以下能力域：
+This skill enables AI coding agents (Claude Code, Codex, Cursor, VS Code, Gemini CLI) to control the UE Editor via Epic's official MCP protocol, covering the following capability domains:
 
-### 连接与配置
+### Connection & Configuration
 
-- 自动检测 MCP 服务器连接状态
-- 引导启用 Unreal MCP 插件、启动服务器、生成客户端配置
-- 连接故障诊断：插件状态 → 服务器端点 → 配置文件 → 日志 → 工具刷新
+- Auto-detect MCP server connection status
+- Guide enabling the Unreal MCP plugin, starting the server, and generating client configurations
+- Connection troubleshooting: plugin status → server endpoint → config files → logs → tool refresh
 
-### 编辑器控制
+### Editor Control
 
-- 获取/设置摄像机位置与视角
-- 获取当前选中的 Actor 和 Asset
-- 获取 Content Browser 路径
-- 检查 PIE（Play In Editor）运行状态
-- 触发截图
+- Get/set camera position and orientation
+- Get currently selected Actors and Assets
+- Get Content Browser path
+- Check PIE (Play In Editor) running status
+- Trigger screenshots
 
-### 场景与 Actor 管理
+### Level & Actor Management
 
-- 查询当前关卡信息
-- 按条件搜索场景中的 Actor
-- 获取 Actor 标签、变换、组件列表、包围盒
-- 创建、移动、删除 Actor
-- 设置 Actor 变换和选择状态
+- Query current level information
+- Search Actors in the level by criteria
+- Get Actor labels, transforms, component lists, bounding boxes
+- Create, move, delete Actors
+- Set Actor transforms and selection state
 
-### Blueprint 操作
+### Blueprint Operations
 
-- 列出 Blueprint 的所有图表（Graph）
-- 读取图表结构与节点信息（标题、引脚、连接关系）
-- 执行 Blueprint EventGraph 逻辑分析（执行流 + 数据流）
-- 通过 DSL 或节点遍历读取 Blueprint 逻辑
-- 变更前自动进行只读对比检查
+- List all graphs in a Blueprint
+- Read graph structure and node information (titles, pins, connections)
+- Perform Blueprint EventGraph logic analysis (execution flow + data flow)
+- Read Blueprint logic via DSL or node traversal
+- Automatic read-only diff check before modifications
 
-### 资产与内容管理
+### Asset & Content Management
 
-- 浏览和查询 Content Browser 中的资产
-- 导入外部文件到 UE
-- 保存、编译资产
-- 管理材质、网格体、纹理、表格等资产类型
+- Browse and query assets in the Content Browser
+- Import external files into UE
+- Save, compile assets
+- Manage materials, meshes, textures, tables, and other asset types
 
-### 日志与诊断
+### Logging & Diagnostics
 
-- 实时读取编辑器日志（按类别和关键字过滤）
-- 区分 `LogModelContextProtocol`、`LogToolsetRegistry`、`LogPython` 等日志来源
-- 排除 Epic 遥测上传等无关日志干扰
+- Read editor logs in real-time (filter by category and keyword)
+- Distinguish log sources: `LogModelContextProtocol`, `LogToolsetRegistry`, `LogPython`, etc.
+- Filter out irrelevant logs like Epic telemetry uploads
 
-### 自动化测试
+### Automated Testing
 
-- 发现和列举项目中的自动化测试
-- 按需执行测试并获取结果
+- Discover and list automated tests in the project
+- Execute tests on demand and retrieve results
 
 ### Live Coding
 
-- 触发 C++ 热重载编译
-- 等待编译完成后再执行后续依赖操作
+- Trigger C++ hot-reload compilation
+- Wait for compilation to complete before executing dependent operations
 
-### AgentSkill 管理
+### AgentSkill Management
 
-- 列出和查看已有的 UE AgentSkill 资产
-- 创建或更新 AgentSkill（需用户明确授权）
+- List and view existing UE AgentSkill assets
+- Create or update AgentSkill (requires explicit user authorization)
 
-### 扩展工具集（可选插件）
+### Extended Toolsets (Optional Plugins)
 
-启用 `Engine/Plugins/Experimental/Toolsets/*` 下的插件后，可解锁更多能力：
+Enabling plugins under `Engine/Plugins/Experimental/Toolsets/*` unlocks additional capabilities:
 
-| 领域 | 可用工具集 |
+| Domain | Available Toolsets |
 |---|---|
-| 插件与配置 | `PluginToolset`、`ConfigSettingsToolset` |
-| 程序化生成与 VFX | `PCGToolset`、`NiagaraToolsets`、`DataflowAgent` |
-| Gameplay 系统 | `GameplayTagsToolset`、`GASToolsets`、`StateTreeToolset` |
-| UI 检查 | `UMGToolSet`、`MVVMToolset`、`SlateInspectorToolset` |
-| 专用资产 | `PhysicsToolsets`、`AnimationAssistantToolset`、`MetaHumanGenerator` |
+| Plugins & Configuration | `PluginToolset`, `ConfigSettingsToolset` |
+| Procedural Generation & VFX | `PCGToolset`, `NiagaraToolsets`, `DataflowAgent` |
+| Gameplay Systems | `GameplayTagsToolset`, `GASToolsets`, `StateTreeToolset` |
+| UI Inspection | `UMGToolSet`, `MVVMToolset`, `SlateInspectorToolset` |
+| Specialized Assets | `PhysicsToolsets`, `AnimationAssistantToolset`, `MetaHumanGenerator` |
 
-## 安装
+## Installation
 
 ```bash
 npx skills add soatori/unreal-mcp-skills
 ```
 
-或手动克隆：
+Or clone manually:
 
 ```bash
 git clone https://github.com/soatori/unreal-mcp-skills.git
 ```
 
-## 快速上手
+## Quick Start
 
-也可以使用 `/ue-mcp:` 前缀，效果相同。
+You can also use the `/ue-mcp:` prefix — it works the same way.
 
-### 连接配置
+### Connection Configuration
 
 ```
 /unreal-mcp:configure <target>
 ```
 
-| 参数 | 说明 | 配置格式 | 配置位置 |
+| Parameter | Description | Config Format | Config Location |
 |---|---|---|---|
-| `claude` | 为 Claude Code 生成配置 | `.mcp.json` | 项目根目录或 `~/.claude/.mcp.json` |
-| `codex` | 为 Codex 生成配置 | `.codex/config.toml` | 项目根目录 |
-| `cursor` | 为 Cursor 生成配置 | `.mcp.json` | 项目根目录 |
-| `vscode` | 为 VS Code 生成配置 | `.vscode/mcp.json` | 项目根目录 |
-| `gemini` | 为 Gemini CLI 生成配置 | `.gemini/settings.json` | 项目根目录 |
-| `all` | 为所有客户端生成配置 | — | 各自对应位置 |
+| `claude` | Generate config for Claude Code | `.mcp.json` | Project root or `~/.claude/.mcp.json` |
+| `codex` | Generate config for Codex | `.codex/config.toml` | Project root |
+| `cursor` | Generate config for Cursor | `.mcp.json` | Project root |
+| `vscode` | Generate config for VS Code | `.vscode/mcp.json` | Project root |
+| `gemini` | Generate config for Gemini CLI | `.gemini/settings.json` | Project root |
+| `all` | Generate config for all clients | — | Respective locations |
 
-执行配置时按以下流程处理：
+Configuration follows this workflow:
 
-1. **检测 UE 项目** — 若未发现 `.uproject` 文件，询问用户项目路径
-2. **检查插件状态** — 检查 `ModelContextProtocol` 和 `ToolsetRegistry` 是否已启用：
-   - 未启用时：询问用户是否帮忙配置（`all` 参数下自动启用）
-3. **检查编辑器 MCP 设置** — 检查并配置以下关键设置：
-   - Auto Start（自动启动 MCP 服务器）
-   - 监听端口（默认 `8000`）
-   - 其他 ModelContextProtocol 相关配置项
-   - 未配置时：询问用户是否帮忙设置（`all` 参数下自动配置）
-4. **检查服务器启动** — 确认服务器正在运行，未运行则引导启动
-5. **生成客户端配置** — 根据目标参数生成对应配置文件
-6. **连接验证** — 调用 `list_toolsets` 确认工具可用
+1. **Detect UE Project** — If no `.uproject` file is found, ask the user for the project path
+2. **Check Plugin Status** — Check if `ModelContextProtocol` and `ToolsetRegistry` are enabled:
+   - If not enabled: ask the user if they want help configuring (auto-enabled with `all` parameter)
+3. **Check Editor MCP Settings** — Check and configure these key settings:
+   - Auto Start (auto-start MCP server)
+   - Listen port (default `8000`)
+   - Other ModelContextProtocol-related settings
+   - If not configured: ask the user if they want help setting up (auto-configured with `all` parameter)
+4. **Check Server Startup** — Confirm the server is running; guide startup if not
+5. **Generate Client Config** — Generate the appropriate config file based on the target parameter
+6. **Connection Verification** — Call `list_toolsets` to confirm tools are available
 
-### 编辑器操作
+### Editor Operations
 
-| 命令 | 说明 |
+| Command | Description |
 |---|---|
-| `/unreal-mcp:execute-blueprint` | 在 UE 编辑器中执行指定 Blueprint 函数 |
-| `/unreal-mcp:open-widget` | 打开 Editor Utility Widget |
+| `/unreal-mcp:execute-blueprint` | Execute a specified Blueprint function in the UE Editor |
+| `/unreal-mcp:open-widget` | Open an Editor Utility Widget |
 
-### 主技能
+### Main Skill
 
-调用 `/unreal-mcp` 时，Agent 会自动引导完成以下流程：
+When invoking `/unreal-mcp`, the Agent will automatically guide through this workflow:
 
-1. 检测 MCP 连接状态
-2. 发现可用工具集（`list_toolsets`）
-3. 查询工具集 schema（`describe_toolset`）
-4. 安全执行编辑器操作（`call_tool`）
+1. Detect MCP connection status
+2. Discover available toolsets (`list_toolsets`)
+3. Query toolset schemas (`describe_toolset`)
+4. Safely execute editor operations (`call_tool`)
 
-## Tool Search 模式
+## Tool Search Mode
 
-Unreal MCP 默认启用 Tool Search 模式，`tools/list` 返回三个元工具而非全部 schema：
+Unreal MCP enables Tool Search mode by default. `tools/list` returns three meta-tools instead of all schemas:
 
-| 元工具 | 用途 |
+| Meta-tool | Purpose |
 |---|---|
-| `list_toolsets` | 列出可用 Toolset 名称和描述 |
-| `describe_toolset` | 返回指定 Toolset 的工具 schema |
-| `call_tool` | 调用指定 Toolset 中的工具 |
+| `list_toolsets` | List available Toolset names and descriptions |
+| `describe_toolset` | Return the tool schema for a specified Toolset |
+| `call_tool` | Call a tool within a specified Toolset |
 
-调用 `call_tool` 时需传 `toolset_name`（完整 Toolset 名）和 `tool_name`（短工具名），不要使用全限定工具名。
+When calling `call_tool`, pass `toolset_name` (full Toolset name) and `tool_name` (short tool name). Do not use fully-qualified tool names.
 
-## 编辑器设置
+## Editor Settings
 
-| 设置项 | 默认值 | 位置 |
+| Setting | Default | Location |
 |---|---|---|
 | Auto Start Server | `false` | Editor Preferences > General > Model Context Protocol |
-| Server Port Number | `8000` | 同上 |
-| Server URL Path | `/mcp` | 同上 |
+| Server Port Number | `8000` | Same as above |
+| Server URL Path | `/mcp` | Same as above |
 | Server name | `unreal-mcp` | `serverInfo.name` |
-| Enable Tool Search | `true` | `tools/list` 返回元工具 |
+| Enable Tool Search | `true` | `tools/list` returns meta-tools |
 
-## 控制台命令
+## Console Commands
 
-| 命令 | 用途 |
+| Command | Purpose |
 |---|---|
-| `ModelContextProtocol.StartServer [port]` | 启动服务器，可选覆盖端口 |
-| `ModelContextProtocol.StopServer` | 停止服务器并关闭会话 |
-| `ModelContextProtocol.RefreshTools` | 重新加载工具注册（热重载/Game Feature 激活后使用） |
-| `ModelContextProtocol.GenerateClientConfig <Client\|All>` | 生成客户端配置，支持 `ClaudeCode`、`Cursor`、`VSCode`、`Gemini`、`Codex`、`All` |
+| `ModelContextProtocol.StartServer [port]` | Start the server, optional port override |
+| `ModelContextProtocol.StopServer` | Stop the server and close the session |
+| `ModelContextProtocol.RefreshTools` | Reload tool registration (use after hot-reload / Game Feature activation) |
+| `ModelContextProtocol.GenerateClientConfig <Client\|All>` | Generate client config, supports `ClaudeCode`, `Cursor`, `VSCode`, `Gemini`, `Codex`, `All` |
 
-启动参数：
+Launch parameters:
 
-| 参数 | 用途 |
+| Parameter | Purpose |
 |---|---|
-| `-ModelContextProtocolStartServer` | 启动编辑器时自动启动 MCP 服务器 |
-| `-ModelContextProtocolPort=N` | 覆盖监听端口（`1..65535`） |
+| `-ModelContextProtocolStartServer` | Auto-start MCP server when launching the editor |
+| `-ModelContextProtocolPort=N` | Override listen port (`1..65535`) |
 
-## 安全与限制
+## Security & Limitations
 
-- Unreal MCP 为实验性功能，API 和 schema 可能变更
-- 仅支持 HTTP 和 Server-Sent Events 传输，不支持 `stdio` 和 WebSocket
-- 默认绑定 loopback（`127.0.0.1`），不接受非本地 Origin
-- 无认证层，不要暴露到本地机器以外
-- 工具调用在 Unreal 游戏线程上串行执行，不可重叠依赖调用
-- PIE 运行时工具行为可能不同，结果异常时检查 PIE 状态
-- 批量变更前后均应保存项目，MCP 编辑不总是可撤销的
+- Unreal MCP is an experimental feature; APIs and schemas may change
+- Only HTTP and Server-Sent Events transports are supported; `stdio` and WebSocket are not
+- Binds to loopback (`127.0.0.1`) by default; does not accept non-local Origins
+- No authentication layer — do not expose beyond the local machine
+- Tool calls execute serially on the Unreal game thread; overlapping dependent calls are not supported
+- Tool behavior may differ during PIE; check PIE status if results seem off
+- Save the project before and after bulk changes — MCP edits are not always undoable
 
-## 自定义工具开发
+## Custom Tool Development
 
-支持通过 Toolset Registry 添加自定义工具：
+Supports adding custom tools via the Toolset Registry:
 
-**Python Toolset：**
+**Python Toolset:**
 
 ```python
 import unreal
@@ -210,35 +210,35 @@ class MyTools(unreal.ToolsetDefinition):
         return {"level_name": world.get_name(), "actor_count": len(actors)}
 ```
 
-**C++ Toolset：**
+**C++ Toolset:**
 
-- 派生自 `UToolsetDefinition`
-- 标记 `UCLASS(BlueprintType, Hidden)`
-- 用 `UFUNCTION(meta = (AICallable))` 暴露静态方法
+- Derive from `UToolsetDefinition`
+- Mark with `UCLASS(BlueprintType, Hidden)`
+- Expose static methods with `UFUNCTION(meta = (AICallable))`
 
-创建后运行 `ModelContextProtocol.RefreshTools` 刷新注册。
+After creation, run `ModelContextProtocol.RefreshTools` to refresh registration.
 
-## 仓库结构
+## Repository Structure
 
 ```
 unreal-mcp-skills/
-├── SKILL.md                          # 主技能文件（Agent 加载入口）
-├── skills.sh.json                    # skills.sh 发现元数据
+├── SKILL.md                          # Main skill file (Agent load entry point)
+├── skills.sh.json                    # skills.sh discovery metadata
 ├── agents/
-│   ├── claude.md                     # Claude Code 配置说明
-│   └── openai.yaml                   # Codex/OpenAI 配置说明
+│   ├── claude.md                     # Claude Code configuration instructions
+│   └── openai.yaml                   # Codex/OpenAI configuration instructions
 └── references/
-    ├── mcp-tools.md                  # 完整 MCP 工具集参考文档
-    └── examples/                     # 示例 MCP 配置（复制到项目根目录）
-        ├── .mcp.json                 # Claude Code 配置
-        ├── .cursor/mcp.json          # Cursor 配置
-        ├── .codex/config.toml        # Codex 配置
-        ├── .vscode/mcp.json          # VS Code 配置
-        └── .gemini/settings.json     # Gemini 配置
+    ├── mcp-tools.md                  # Full MCP toolset reference documentation
+    └── examples/                     # Example MCP configs (copy to project root)
+        ├── .mcp.json                 # Claude Code config
+        ├── .cursor/mcp.json          # Cursor config
+        ├── .codex/config.toml        # Codex config
+        ├── .vscode/mcp.json          # VS Code config
+        └── .gemini/settings.json     # Gemini config
 ```
 
-## 文档
+## Documentation
 
-- **[SKILL.md](SKILL.md)** — 完整 Agent 指令（工作流、工具集、安全规则、调试）
-- **[references/mcp-tools.md](references/mcp-tools.md)** — 安装指南、架构、工具集地图、Blueprint 手册、自定义工具开发
-- **[Epic MCP 官方文档](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)** — Unreal 官方文档
+- **[SKILL.md](SKILL.md)** — Full Agent instructions (workflows, toolsets, safety rules, debugging)
+- **[references/mcp-tools.md](references/mcp-tools.md)** — Installation guide, architecture, toolset map, Blueprint manual, custom tool development
+- **[Epic MCP Official Documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)** — Official Unreal documentation
