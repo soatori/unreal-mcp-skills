@@ -67,6 +67,88 @@ Client config notes:
 - Codex CLI TOML config generation is write-once. The command refuses to overwrite an existing file; remove stale config manually before regenerating.
 - Launch the agent from the project or workspace root where config files were generated.
 
+## Quick Setup (Step by Step)
+
+### 1. Enable Plugins
+
+In UE Editor: **Edit > Plugins**, search and enable:
+
+- **Unreal MCP** (engine identifier: `ModelContextProtocol`)
+- **ToolsetRegistry** — enabled automatically as a dependency of Unreal MCP
+
+Optional domain Toolsets (enable only what you need):
+
+- **EditorToolset** — editor automation, viewport, selection, camera
+- **AutomationTestToolset** — automation test discovery and execution
+- **LiveCodingToolset** — Live Coding compilation
+
+Restart the editor when prompted.
+
+### 2. Start the MCP Server
+
+Either enable **Auto Start Server** in Editor Preferences > General > Model Context Protocol, or run in the Output Log:
+
+```
+ModelContextProtocol.StartServer
+```
+
+Verify with:
+
+```
+ModelContextProtocol.RefreshTools
+```
+
+### 3. Generate Client Config
+
+Run in the UE Editor console (Output Log or Cmd):
+
+```
+ModelContextProtocol.GenerateClientConfig ClaudeCode
+```
+
+Supported clients: `ClaudeCode`, `Cursor`, `VSCode`, `Gemini`, `Codex`, `All`.
+
+This writes the config file to the project root. Sample configs for each client:
+
+| Client | Config file | Key format |
+|---|---|---|
+| Claude Code | `.mcp.json` | `"type": "http", "url": "..."` |
+| Codex | `.codex/config.toml` | `[mcp_servers.unreal-mcp] url = "..."` |
+| Cursor | `.cursor/mcp.json` | `"url": "..."` (no type field) |
+| Gemini | `.gemini/settings.json` | `"httpUrl": "..."` |
+
+Full sample configs are in `references/sample-configs/`.
+
+### 4. Connect the Agent
+
+Launch the agent **from the project root** where the config was generated:
+
+```bash
+cd /path/to/your/ue/project
+claude          # Claude Code
+codex           # Codex
+```
+
+### 5. Verify Connection
+
+Once connected, confirm MCP tools are available:
+
+```json
+{ "tool_name": "list_toolsets" }
+```
+
+If no tools appear, see the Debugging section in `SKILL.md`.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Plugin not found in Edit > Plugins | Confirm UE version is 5.8+; search for "Unreal MCP" not "ModelContextProtocol" |
+| Server fails to start | Check port 8000 is not occupied; review `LogModelContextProtocol` in Output Log |
+| Tools not visible after connect | Run `ModelContextProtocol.RefreshTools`; reconnect the agent from the project root |
+| Schema looks stale | Reconnect the client; regenerated configs merge with existing entries (except Codex TOML) |
+| `call_tool` returns `Unknown tool` | Use the short tool name with `toolset_name`, not the fully qualified name |
+
 ## Tool Search
 
 Unreal MCP defaults to Tool Search mode when `bEnableToolSearch=true`.

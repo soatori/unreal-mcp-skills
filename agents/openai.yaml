@@ -2,3 +2,9 @@ interface:
   display_name: "Unreal MCP"
   short_description: "Use Unreal MCP and ToolsetRegistry safely."
   default_prompt: "Use $ue-mcp to inspect available Unreal toolsets and perform the requested editor task safely."
+
+# Codex MCP config (.codex/config.toml):
+# [mcp_servers.unreal-mcp]
+# url = "http://127.0.0.1:8000/mcp"
+#
+# Generate with: ModelContextProtocol.GenerateClientConfig Codex

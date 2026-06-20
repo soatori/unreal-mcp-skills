@@ -8,7 +8,17 @@
    ```
    ModelContextProtocol.GenerateClientConfig ClaudeCode
    ```
-   This writes a `.mcp.json` (or equivalent) to the project root.
+   This writes `.mcp.json` to the project root. Sample config:
+   ```json
+   {
+     "mcpServers": {
+       "unreal-mcp": {
+         "type": "http",
+         "url": "http://127.0.0.1:8000/mcp"
+       }
+     }
+   }
+   ```
 4. Launch Claude Code **from that project root** so it picks up the config.
 
 ## Connection Verification
