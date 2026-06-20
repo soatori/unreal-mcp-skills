@@ -19,13 +19,6 @@ This skill teaches AI coding agents (Claude Code, Codex, Cursor, Gemini CLI) how
 ## Install
 
 ```bash
-# Claude Code
-npx skills add soatori/ue-mcp
-
-# Codex
-npx skills add soatori/ue-mcp
-
-# Cursor / Gemini CLI
 npx skills add soatori/ue-mcp
 ```
 
