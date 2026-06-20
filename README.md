@@ -1,4 +1,4 @@
-[![skills.sh](https://skills.sh/b/soatori/ue-mcp)](https://skills.sh/soatori/ue-mcp)
+[![skills.sh](https://skills.sh/b/soatori/unreal-mcp-skills)](https://skills.sh/soatori/unreal-mcp-skills)
 
 # Unreal MCP Skill
 
@@ -19,27 +19,25 @@ This skill teaches AI coding agents (Claude Code, Codex, Cursor, Gemini CLI) how
 ## Install
 
 ```bash
-npx skills add soatori/ue-mcp
+npx skills add soatori/unreal-mcp-skills
 ```
 
 Or clone manually:
 
 ```bash
-git clone https://github.com/soatori/ue-mcp.git ~/.claude/skills/ue-mcp
+git clone https://github.com/soatori/unreal-mcp-skills.git
 ```
 
 ## Quick Start
 
-1. Enable the **Unreal MCP** plugin in UE Editor (Edit > Plugins)
-2. Start the server: `ModelContextProtocol.StartServer`
-3. Generate client config: `ModelContextProtocol.GenerateClientConfig ClaudeCode`
-4. Launch your agent from the project root
-5. Verify: send `list_toolsets` — if you see toolsets, you're connected
+1. Invoke `/unreal-mcp-skills` or `$unreal-mcp-skills` in your agent
+2. The skill will guide you through connecting to UE Editor via MCP
+3. Follow the workflow in SKILL.md for toolset discovery and safe tool invocation
 
 ## Repository Structure
 
 ```
-ue-mcp/
+unreal-mcp-skills/
 ├── SKILL.md                          # Main skill (loaded by agents)
 ├── skills.sh.json                    # skills.sh discovery metadata
 ├── agents/
