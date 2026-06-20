@@ -65,4 +65,4 @@ unreal-mcp-skills/
 
 - **[SKILL.md](SKILL.md)** — full agent instructions (workflow, toolsets, safety rules, debugging)
 - **[references/mcp-tools.md](references/mcp-tools.md)** — setup guide, architecture, toolset map, Blueprint playbook, custom tool authoring
-- **[Epic MCP docs](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor?lang=en-US)** — official Unreal documentation
+- **[Epic MCP docs](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)** — official Unreal documentation
