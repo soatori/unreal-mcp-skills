@@ -46,9 +46,9 @@ unreal-mcp-skills/
 └── references/
     ├── mcp-tools.md                  # Full MCP toolset reference
     └── sample-configs/
-        ├── claude-code-mcp.json      # Claude Code / Cursor .mcp.json sample
-        ├── codex-config.toml         # .codex/config.toml sample
-        └── gemini-settings.json      # .gemini/settings.json sample
+        ├── mcp-config.json           # Claude Code / Cursor .mcp.json sample
+        ├── mcp-config.toml           # Codex .codex/config.toml sample
+        └── mcp-config-gemini.json    # Gemini .gemini/settings.json sample
 ```
 
 ## Supported Clients
