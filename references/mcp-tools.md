@@ -117,7 +117,7 @@ This merges the Unreal MCP server into the config file in the project root (exis
 | Cursor | `.cursor/mcp.json` | `"url": "..."` (no type field) |
 | Gemini | `.gemini/settings.json` | `"httpUrl": "..."` |
 
-Full sample configs are in `references/sample-configs/`.
+Full sample configs are in `references/sample-mcp-configs/` (copy the relevant files to your project root).
 
 ### 4. Connect the Agent
 
