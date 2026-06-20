@@ -69,25 +69,18 @@ Keep these activation layers separate:
 
 ## Choosing Toolsets
 
-Currently enabled Toolsets are only the live `list_toolsets` result, not every plugin found in the engine source. As an observed baseline example from the FirstPerson MCP session, the enabled set was the base editor stack: `ToolsetRegistry.AgentSkillToolset`, `EditorToolset.EditorAppToolset`, `EditorToolset.LogsToolset`, `AutomationTestToolset.AutomationTestToolset`, `LiveCodingToolset.LiveCodingToolset`, and `editor_toolset.toolsets.*` Python tools. Re-check every project with `list_toolsets`.
+Only the live `list_toolsets` result is authoritative. Common baseline toolsets:
 
-- General editor state, viewport, selection, camera, PIE, screenshots, or Content Browser tasks: use `EditorToolset.EditorAppToolset`.
-- Scene, actor, component, asset, material, Blueprint, table, mesh, texture, or object tasks: use the corresponding `editor_toolset.toolsets.*` Toolset discovered at runtime.
-- Logs and diagnostics: use `EditorToolset.LogsToolset`; pass `category: ""` when querying all log categories.
-- Test discovery or validation: use `AutomationTestToolset.AutomationTestToolset`.
-- C++ iteration: use `LiveCodingToolset.LiveCodingToolset`.
-- UE AgentSkill management: use `ToolsetRegistry.AgentSkillToolset`, but create or update skills only after explicit user permission.
+- **Editor state, viewport, selection, camera, PIE, screenshots, Content Browser:** `EditorToolset.EditorAppToolset`
+- **Scene, actor, component, asset, material, Blueprint, mesh, texture:** corresponding `editor_toolset.toolsets.*` discovered at runtime
+- **Logs and diagnostics:** `EditorToolset.LogsToolset` (pass `category: ""` for all)
+- **Test discovery or validation:** `AutomationTestToolset.AutomationTestToolset`
+- **C++ iteration:** `LiveCodingToolset.LiveCodingToolset`
+- **UE AgentSkill management:** `ToolsetRegistry.AgentSkillToolset` (create/update requires permission)
 
-Optional Toolset plugins under `Engine/Plugins/Experimental/Toolsets/*` can add more MCP-visible domains after they are enabled, the editor is restarted, and `list_toolsets` confirms them. Use the smallest plugin set needed; do not enable `AllToolsets` by default.
+For the full toolset map including optional plugins (PCG, GAS, Niagara, UMG, MVVM, etc.), see the "Built-In Toolset Map" section in `references/mcp-tools.md`.
 
-- Plugin and config work: use `PluginToolset` for plugin discovery or creation, and `ConfigSettingsToolset` for config sections and settings.
-- Procedural, graph, VFX, and dataflow work: use `PCGToolset`, `PCGSpatialToolset`, `NiagaraToolsets`, `DataflowAgent`, or `ChaosClothAssetToolset`.
-- Gameplay systems: use `GameplayTagsToolset`, `GameFeaturesToolset`, `GASToolsets`, `DataRegistryToolset`, `StateTreeToolset`, or `WorldConditionsToolset`.
-- UI and editor UI inspection: use `UMGToolSet`, `MVVMToolset`, or `SlateInspectorToolset`.
-- Specialized asset workflows: use `PhysicsToolsets`, `AnimationAssistantToolset`, `SequencerAnimMixerToolset`, `ConversationToolset`, `MetaHumanGenerator`, or `SemanticSearchToolset` only when the project and live schemas justify them.
-- External MCP servers inside UE: use `MCPClientToolset` only when UE needs to connect outward to another MCP server and expose those remote tools through Toolset Registry. It is not the Codex-to-UE editor control path.
-
-For concrete controllable operations in each domain, load `references/mcp-tools.md` and use its "Concrete Control Surface" section before calling tools.
+Optional toolset plugins under `Engine/Plugins/Experimental/Toolsets/*` can add more MCP-visible domains. Use the smallest plugin set needed; do not enable `AllToolsets` by default.
 
 ## Typical Tool Calls
 
