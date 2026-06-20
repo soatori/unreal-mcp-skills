@@ -54,12 +54,12 @@ unreal-mcp-skills/
 
 ## Supported Clients
 
-| Client | Config format | Generate command |
-|---|---|---|
-| Claude Code | `.mcp.json` | `ModelContextProtocol.GenerateClientConfig ClaudeCode` |
-| Codex | `.codex/config.toml` | `ModelContextProtocol.GenerateClientConfig Codex` |
-| Cursor | `.cursor/mcp.json` | `ModelContextProtocol.GenerateClientConfig Cursor` |
-| Gemini CLI | `.gemini/settings.json` | `ModelContextProtocol.GenerateClientConfig Gemini` |
+| Client | Config format | Generate command | Config location |
+|---|---|---|---|
+| Claude Code | `.mcp.json` | `ModelContextProtocol.GenerateClientConfig ClaudeCode` | Project root or `~/.claude/.mcp.json` |
+| Codex | `.codex/config.toml` | `ModelContextProtocol.GenerateClientConfig Codex` | Project root |
+| Cursor | `.cursor/mcp.json` | `ModelContextProtocol.GenerateClientConfig Cursor` | Project root |
+| Gemini CLI | `.gemini/settings.json` | `ModelContextProtocol.GenerateClientConfig Gemini` | Project root |
 
 ## Documentation
 
