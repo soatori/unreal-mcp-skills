@@ -12,8 +12,6 @@ Agent guidance for operating Unreal Editor through Epic's official **ModelContex
 npx skills add soatori/unreal-mcp-skills
 ```
 
-The package name is `unreal-mcp-skills`. The skill command is `unreal-mcp`.
-
 Use one of these forms in an agent session:
 
 ```text
