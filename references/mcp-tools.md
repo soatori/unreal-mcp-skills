@@ -108,7 +108,7 @@ ModelContextProtocol.GenerateClientConfig ClaudeCode
 
 Supported clients: `ClaudeCode`, `Cursor`, `VSCode`, `Gemini`, `Codex`, `All`.
 
-This writes the config file to the project root. Sample configs for each client:
+This merges the Unreal MCP server into the config file in the project root (existing entries are preserved for JSON formats). Sample configs for each client:
 
 | Client | Config file | Key format |
 |---|---|---|
