@@ -46,9 +46,8 @@ unreal-mcp-skills/
 └── references/
     ├── mcp-tools.md                  # Full MCP toolset reference
     └── sample-configs/
-        ├── claude-code-mcp.json      # .mcp.json sample
+        ├── claude-code-mcp.json      # Claude Code / Cursor .mcp.json sample
         ├── codex-config.toml         # .codex/config.toml sample
-        ├── cursor-mcp.json           # .cursor/mcp.json sample
         └── gemini-settings.json      # .gemini/settings.json sample
 ```
 
@@ -58,7 +57,7 @@ unreal-mcp-skills/
 |---|---|---|---|
 | Claude Code | `.mcp.json` | `ModelContextProtocol.GenerateClientConfig ClaudeCode` | Project root or `~/.claude/.mcp.json` |
 | Codex | `.codex/config.toml` | `ModelContextProtocol.GenerateClientConfig Codex` | Project root |
-| Cursor | `.cursor/mcp.json` | `ModelContextProtocol.GenerateClientConfig Cursor` | Project root |
+| Cursor | `.mcp.json` | `ModelContextProtocol.GenerateClientConfig Cursor` | Project root |
 | Gemini CLI | `.gemini/settings.json` | `ModelContextProtocol.GenerateClientConfig Gemini` | Project root |
 
 ## Documentation
