@@ -298,6 +298,7 @@ These plugins exist in the UE source under `Engine/Plugins/Experimental/Toolsets
 | UI | `UMGToolSet` | UMG widget creation, hierarchy, bindings, properties, and reflection-driven widget edits |
 | UI | `MVVMToolset` | MVVM view model, field, binding, and widget-viewmodel data management |
 | UI | `SlateInspectorToolset` | Slate widget tree inspection, editor UI location queries, and UI automation diagnostics |
+| UI | `AIAssistantToolset` | Docked context for AI agents inside asset editors (e.g. Blueprint, Material editor tabs) |
 | Physics/animation | `PhysicsToolsets` | Physics asset and constraint-oriented inspection or editing |
 | Physics/animation | `AnimationAssistantToolset`, `SequencerAnimMixerToolset` | Animation-system and Sequencer animation mixer tasks |
 | AI/dialogue | `AIModuleToolset`, `ConversationToolset` | AI module and conversation system tasks when schemas are exposed |
@@ -561,6 +562,17 @@ Observed local call-shape pitfalls:
 - To inspect Blueprint logic reliably, call `find_nodes` with `title: ""`, then pass returned node refs to `get_node_infos`. For one execution chain, call `get_connected_subgraph` with an event/input node ref. These return `input_pins`, `output_pins`, `connected_pins`, node positions, and `type_id`.
 - `EditorToolset.LogsToolset.GetLogEntries` may default `category` to a missing category; pass `category: ""` for all logs.
 - `AutomationTestToolset.DiscoverTests` can emit UE warnings before useful JSON state is available. Follow with `ListTests` or inspect logs before treating the session as failed.
+
+## Companion Skills (Epic Plugin)
+
+The official Epic `unreal-mcp` Claude Code plugin includes two companion skills that may overlap with this skill:
+
+| Skill | Purpose | When to use |
+|---|---|---|
+| `create-toolset` | Scaffold new C++ or Python toolsets | When authoring a new ToolsetDefinition |
+| `unreal-skill` | Create or update UE AgentSkill assets | When authoring project-level Agent Skills |
+
+If both this skill and the Epic plugin are installed, this skill takes precedence for MCP connection, tool discovery, and editor operation guidance. Use the Epic companion skills for toolset scaffolding and Agent Skill authoring workflows specifically.
 
 ## Public Case Boundary
 
