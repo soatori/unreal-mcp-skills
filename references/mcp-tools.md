@@ -64,7 +64,7 @@ Important console variables:
 Client config notes:
 
 - JSON client configs such as Claude Code, Cursor, VS Code, and Gemini are merged with existing entries, so regenerating is safe.
-- Codex CLI TOML config generation is write-once. The command refuses to overwrite an existing file; remove stale config manually before regenerating.
+- **Codex CLI TOML config is write-once.** The command refuses to overwrite an existing `.codex/config.toml` file. Before regenerating, manually delete the stale config file. This is a hard restriction, not a merge behavior.
 - Launch the agent from the project or workspace root where config files were generated.
 
 ## Quick Setup (Step by Step)

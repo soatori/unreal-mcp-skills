@@ -30,7 +30,7 @@ Use this project skill when the user explicitly invokes `/unreal-mcp` or `/ue-mc
 
 | Command | Description |
 |---|---|
-| `/unreal-mcp:configure <target>` | Configure MCP for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Detects UE project → checks plugins (ask to enable unless `all`) → checks editor MCP settings (Auto Start, port, path, etc., auto-configure if `all`) → checks server → generates config → verifies connection. |
+| `/unreal-mcp:configure <target>` | Configure MCP for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Detects UE project → checks plugins (ask to enable unless `all`) → checks editor MCP settings (Auto Start, port, path, etc., auto-configure if `all`) → checks server → generates config. For `codex`, checks for existing TOML config first (write-once: refuses to overwrite). → verifies connection. |
 | `/unreal-mcp:execute-blueprint` | Execute a Blueprint function in Unreal Engine |
 | `/unreal-mcp:open-widget` | Open an Editor Utility Widget in Unreal Engine |
 
