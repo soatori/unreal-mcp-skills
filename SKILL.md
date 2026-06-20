@@ -1,19 +1,23 @@
 ---
 name: ue-mcp
-description: Guide agents in using Epic's UE 5.8 Unreal MCP, ModelContextProtocol, ToolsetRegistry, Tool Search, AgentSkillToolset, EditorToolset, AutomationTestToolset, LiveCodingToolset, MCPClientToolset, and custom MCP Tool development. Use when Codex needs to connect to a UE Editor MCP server, discover available Unreal toolsets, call MCP tools safely, create or update UE AgentSkill assets with permission, or debug Unreal MCP configuration and tool availability.
+description: Guide agents in using Epic's Unreal MCP, ModelContextProtocol, ToolsetRegistry, Tool Search, AgentSkillToolset, EditorToolset, AutomationTestToolset, LiveCodingToolset, MCPClientToolset, and custom MCP Tool development. Use when Codex needs to connect to a UE Editor MCP server, discover available Unreal toolsets, call MCP tools safely, create or update UE AgentSkill assets with permission, or debug Unreal MCP configuration and tool availability.
 ---
 
-# UE 5.8 Unreal MCP
+# Unreal MCP Skill
+
+A guidance skill for agents to operate the Unreal Editor through Epic's official ModelContextProtocol (MCP) toolset.
+
+> **Supported version:** UE 5.8+
 
 ## Overview
 
-Use this skill to operate a UE 5.8 editor through Epic's official Unreal MCP. The Plugin Browser and Epic documentation use the friendly name **Unreal MCP**; the engine source tree, `.uplugin` files, C++ symbols, console commands, and settings use the identifier `ModelContextProtocol`.
+Use this skill to operate a UE editor through Epic's official Unreal MCP. The Plugin Browser and Epic documentation use the friendly name **Unreal MCP**; the engine source tree, `.uplugin` files, C++ symbols, console commands, and settings use the identifier `ModelContextProtocol`.
 
 Treat Unreal MCP as a local HTTP/SSE MCP server embedded in the editor process. It synchronizes external tool calls onto the Unreal game thread and executes tool invocations serially, so do not issue overlapping dependent calls.
 
 Useful editor operations usually come from `ToolsetRegistry` plus enabled `Experimental/Toolsets/*` plugins. `ModelContextProtocol` itself is primarily the transport, server, settings, and protocol layer.
 
-Do not infer UE MCP capability from third-party Unreal MCP servers or Jianying/CapCut MCP projects. Those can suggest automation patterns, but official UE 5.8 behavior must come from Epic docs, local UE 5.8 source, schemas returned by `describe_toolset`, or live editor evidence.
+Do not infer UE MCP capability from third-party Unreal MCP servers or Jianying/CapCut MCP projects. Those can suggest automation patterns, but official UE behavior must come from Epic docs, local UE source, schemas returned by `describe_toolset`, or live editor evidence.
 
 Read `references/mcp-tools.md` when you need concrete setup details, built-in toolset domains, configuration keys, console commands, custom Toolset patterns, runtime limits, or known call-shape pitfalls.
 
