@@ -1,4 +1,4 @@
-[![skills.sh](https://skills.sh/b/soatori/ue-mcp)](https://skills.sh/soatori/ue-mcp)
+[![skills.sh](https://skills.sh/b/soatori/ue-mcp)](https://skills.sh/soatori/unreal-mcp-skills)
 
 # Unreal MCP Skill
 
@@ -19,13 +19,13 @@ This skill teaches AI coding agents (Claude Code, Codex, Cursor, Gemini CLI) how
 ## Install
 
 ```bash
-npx skills add soatori/ue-mcp
+npx skills add soatori/unreal-mcp-skills
 ```
 
 Or clone manually:
 
 ```bash
-git clone https://github.com/soatori/ue-mcp.git ~/.claude/skills/ue-mcp
+git clone https://github.com/soatori/unreal-mcp-skills.git
 ```
 
 ## Quick Start
@@ -67,4 +67,4 @@ ue-mcp/
 
 - **[SKILL.md](SKILL.md)** — full agent instructions (workflow, toolsets, safety rules, debugging)
 - **[references/mcp-tools.md](references/mcp-tools.md)** — setup guide, architecture, toolset map, Blueprint playbook, custom tool authoring
-- **[Epic MCP docs](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor?lang=en-US)** — official Unreal documentation
+- **[Epic MCP docs](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)** — official Unreal documentation
