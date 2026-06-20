@@ -25,6 +25,8 @@ The friendly plugin name is **Unreal MCP**. Engine identifiers, console commands
 
 ## Setup And Configuration
 
+For `/unreal-mcp:configure` and `/ue-mcp:configure`, use `references/configure-workflow.md` and the script-backed workflow first. The manual steps below are the fallback and detailed reference.
+
 | Item | Default or command | Notes |
 |---|---|---|
 | Enable plugin | Unreal MCP | Enable from Edit > Plugins. `ToolsetRegistry` is a dependency and is enabled automatically. Restart when prompted. |

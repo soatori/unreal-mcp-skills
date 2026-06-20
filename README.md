@@ -2,243 +2,117 @@
 
 # Unreal MCP Skill
 
-Agent guidance skill for operating the Unreal Editor through Epic's official **ModelContextProtocol (MCP)** toolset.
+Agent guidance for operating Unreal Editor through Epic's official **ModelContextProtocol (MCP)** toolset.
 
-> **Supported version:** UE 5.8+
-> Learn to use this Experimental feature, but use caution when shipping with it.
+> Supported version: UE 5.8+
 
-## Features
-
-This skill enables AI coding agents (Claude Code, Codex, Cursor, VS Code, Gemini CLI) to control the UE Editor via Epic's official MCP protocol, covering the following capability domains:
-
-### Connection & Configuration
-
-- Auto-detect MCP server connection status
-- Guide enabling the Unreal MCP plugin, starting the server, and generating client configurations
-- Connection troubleshooting: plugin status → server endpoint → config files → logs → tool refresh
-
-### Editor Control
-
-- Get/set camera position and orientation
-- Get currently selected Actors and Assets
-- Get Content Browser path
-- Check PIE (Play In Editor) running status
-- Trigger screenshots
-
-### Level & Actor Management
-
-- Query current level information
-- Search Actors in the level by criteria
-- Get Actor labels, transforms, component lists, bounding boxes
-- Create, move, delete Actors
-- Set Actor transforms and selection state
-
-### Blueprint Operations
-
-- List all graphs in a Blueprint
-- Read graph structure and node information (titles, pins, connections)
-- Perform Blueprint EventGraph logic analysis (execution flow + data flow)
-- Read Blueprint logic via DSL or node traversal
-- Automatic read-only diff check before modifications
-
-### Asset & Content Management
-
-- Browse and query assets in the Content Browser
-- Import external files into UE
-- Save, compile assets
-- Manage materials, meshes, textures, tables, and other asset types
-
-### Logging & Diagnostics
-
-- Read editor logs in real-time (filter by category and keyword)
-- Distinguish log sources: `LogModelContextProtocol`, `LogToolsetRegistry`, `LogPython`, etc.
-- Filter out irrelevant logs like Epic telemetry uploads
-
-### Automated Testing
-
-- Discover and list automated tests in the project
-- Execute tests on demand and retrieve results
-
-### Live Coding
-
-- Trigger C++ hot-reload compilation
-- Wait for compilation to complete before executing dependent operations
-
-### AgentSkill Management
-
-- List and view existing UE AgentSkill assets
-- Create or update AgentSkill (requires explicit user authorization)
-
-### Extended Toolsets (Optional Plugins)
-
-Enabling plugins under `Engine/Plugins/Experimental/Toolsets/*` unlocks additional capabilities:
-
-| Domain | Available Toolsets |
-|---|---|
-| Plugins & Configuration | `PluginToolset`, `ConfigSettingsToolset` |
-| Procedural Generation & VFX | `PCGToolset`, `NiagaraToolsets`, `DataflowAgent` |
-| Gameplay Systems | `GameplayTagsToolset`, `GASToolsets`, `StateTreeToolset` |
-| UI Inspection | `UMGToolSet`, `MVVMToolset`, `SlateInspectorToolset` |
-| Specialized Assets | `PhysicsToolsets`, `AnimationAssistantToolset`, `MetaHumanGenerator` |
-
-## Installation
+## Install
 
 ```bash
 npx skills add soatori/unreal-mcp-skills
 ```
 
-Or clone manually:
+The package name is `unreal-mcp-skills`. The skill command is `unreal-mcp`.
 
-```bash
-git clone https://github.com/soatori/unreal-mcp-skills.git
+Use one of these forms in an agent session:
+
+```text
+$unreal-mcp
+/unreal-mcp
+/ue-mcp
+/unreal-mcp:configure all
+/ue-mcp:configure codex
 ```
+
+Do not use `/unreal-mcp-skills` as a command. That is the distribution/package name.
 
 ## Quick Start
 
-You can also use the `/ue-mcp:` prefix — it works the same way.
+1. Start from a UE project root or provide a `.uproject` path.
+2. Run a dry-run configuration check:
 
-### Connection Configuration
+   ```powershell
+   .\scripts\configure-unreal-mcp.ps1 -ProjectPath "E:\Path\Project" -Target all -DryRun
+   ```
 
-```
-/unreal-mcp:configure <target>
-```
+3. If the planned changes are correct, run the real configuration:
 
-| Parameter | Description | Config Format | Config Location |
-|---|---|---|---|
-| `claude` | Generate config for Claude Code | `.mcp.json` | Project root or `~/.claude/.mcp.json` |
-| `codex` | Generate config for Codex | `.codex/config.toml` | Project root |
-| `cursor` | Generate config for Cursor | `.mcp.json` | Project root |
-| `vscode` | Generate config for VS Code | `.vscode/mcp.json` | Project root |
-| `gemini` | Generate config for Gemini CLI | `.gemini/settings.json` | Project root |
-| `all` | Generate config for all clients | — | Respective locations |
+   ```powershell
+   .\scripts\configure-unreal-mcp.ps1 -ProjectPath "E:\Path\Project" -Target all -Verify
+   ```
 
-Configuration follows this workflow:
+4. Launch or restart Unreal Editor.
+5. Start the agent from the project root where MCP config was written.
+6. Confirm the connection by calling `list_toolsets`.
 
-1. **Detect UE Project** — If no `.uproject` file is found, ask the user for the project path
-2. **Check Plugin Status** — Check if `ModelContextProtocol` and `ToolsetRegistry` are enabled:
-   - If not enabled: ask the user if they want help configuring (auto-enabled with `all` parameter)
-3. **Check Editor MCP Settings** — Check and configure these key settings:
-   - Auto Start (auto-start MCP server)
-   - Listen port (default `8000`)
-   - Other ModelContextProtocol-related settings
-   - If not configured: ask the user if they want help setting up (auto-configured with `all` parameter)
-4. **Check Server Startup** — Confirm the server is running; guide startup if not
-5. **Generate Client Config** — Generate the appropriate config file based on the target parameter
-6. **Connection Verification** — Call `list_toolsets` to confirm tools are available
+The script enables only the required plugins: `ModelContextProtocol` and `ToolsetRegistry`. It does not enable `AllToolsets` or optional experimental Toolsets.
 
-### Editor Operations
+## Configure Command
 
-| Command | Description |
+`/unreal-mcp:configure <target>` and `/ue-mcp:configure <target>` map to the script-backed workflow in `references/configure-workflow.md`.
+
+Supported targets:
+
+| Target | Config file |
 |---|---|
-| `/unreal-mcp:execute-blueprint` | Execute a specified Blueprint function in the UE Editor |
-| `/unreal-mcp:open-widget` | Open an Editor Utility Widget |
+| `claude` | `.mcp.json` |
+| `codex` | `.codex/config.toml` |
+| `cursor` | `.cursor/mcp.json` |
+| `vscode` | `.vscode/mcp.json` |
+| `gemini` | `.gemini/settings.json` |
+| `all` | all supported clients |
 
-### Main Skill
+Codex TOML is protected as write-once. If `.codex/config.toml` already exists, the script stops and asks for manual cleanup instead of overwriting it.
 
-When invoking `/unreal-mcp`, the Agent will automatically guide through this workflow:
+## What This Skill Covers
 
-1. Detect MCP connection status
-2. Discover available toolsets (`list_toolsets`)
-3. Query toolset schemas (`describe_toolset`)
-4. Safely execute editor operations (`call_tool`)
+- Tool Search flow: `list_toolsets` -> `describe_toolset` -> `call_tool`.
+- Editor, scene, actor, asset, Blueprint, log, automation test, and Live Coding workflows exposed by enabled Toolsets.
+- Safe read-before-write editor operations.
+- UE AgentSkill inspection and creation/update boundaries.
+- Blueprint EventGraph reading, including fallback from `read_graph_dsl` to node and pin inspection.
+- `uasset_read` comparison support using UE MCP as editor semantic evidence, not binary serialization proof.
 
-## Tool Search Mode
+For detailed Toolset maps, runtime limits, custom Toolset authoring, and known call-shape pitfalls, read `references/mcp-tools.md`.
 
-Unreal MCP enables Tool Search mode by default. `tools/list` returns three meta-tools instead of all schemas:
+For parser comparison work, read `references/uasset-read-comparison.md`.
 
-| Meta-tool | Purpose |
-|---|---|
-| `list_toolsets` | List available Toolset names and descriptions |
-| `describe_toolset` | Return the tool schema for a specified Toolset |
-| `call_tool` | Call a tool within a specified Toolset |
+## Maintenance
 
-When calling `call_tool`, pass `toolset_name` (full Toolset name) and `tool_name` (short tool name). Do not use fully-qualified tool names.
+Run the skill consistency check after editing docs, examples, metadata, or scripts:
 
-## Editor Settings
-
-| Setting | Default | Location |
-|---|---|---|
-| Auto Start Server | `false` | Editor Preferences > General > Model Context Protocol |
-| Server Port Number | `8000` | Same as above |
-| Server URL Path | `/mcp` | Same as above |
-| Server name | `unreal-mcp` | `serverInfo.name` |
-| Enable Tool Search | `true` | `tools/list` returns meta-tools |
-
-## Console Commands
-
-| Command | Purpose |
-|---|---|
-| `ModelContextProtocol.StartServer [port]` | Start the server, optional port override |
-| `ModelContextProtocol.StopServer` | Stop the server and close the session |
-| `ModelContextProtocol.RefreshTools` | Reload tool registration (use after hot-reload / Game Feature activation) |
-| `ModelContextProtocol.GenerateClientConfig <Client\|All>` | Generate client config, supports `ClaudeCode`, `Cursor`, `VSCode`, `Gemini`, `Codex`, `All` |
-
-Launch parameters:
-
-| Parameter | Purpose |
-|---|---|
-| `-ModelContextProtocolStartServer` | Auto-start MCP server when launching the editor |
-| `-ModelContextProtocolPort=N` | Override listen port (`1..65535`) |
-
-## Security & Limitations
-
-- Unreal MCP is an experimental feature; APIs and schemas may change
-- Only HTTP and Server-Sent Events transports are supported; `stdio` and WebSocket are not
-- Binds to loopback (`127.0.0.1`) by default; does not accept non-local Origins
-- No authentication layer — do not expose beyond the local machine
-- Tool calls execute serially on the Unreal game thread; overlapping dependent calls are not supported
-- Tool behavior may differ during PIE; check PIE status if results seem off
-- Save the project before and after bulk changes — MCP edits are not always undoable
-
-## Custom Tool Development
-
-Supports adding custom tools via the Toolset Registry:
-
-**Python Toolset:**
-
-```python
-import unreal
-import toolset_registry
-
-@unreal.uclass()
-class MyTools(unreal.ToolsetDefinition):
-    @staticmethod
-    @toolset_registry.tool_call
-    def get_scene_info() -> dict:
-        world = unreal.EditorLevelLibrary.get_editor_world()
-        actors = unreal.EditorLevelLibrary.get_all_level_actors()
-        return {"level_name": world.get_name(), "actor_count": len(actors)}
+```powershell
+.\scripts\validate-skill.ps1
 ```
 
-**C++ Toolset:**
+Useful local checks:
 
-- Derive from `UToolsetDefinition`
-- Mark with `UCLASS(BlueprintType, Hidden)`
-- Expose static methods with `UFUNCTION(meta = (AICallable))`
-
-After creation, run `ModelContextProtocol.RefreshTools` to refresh registration.
-
-## Repository Structure
-
+```powershell
+Get-ChildItem -Recurse references\examples
+rg -n "/unreal-mcp-skills|unreal-mcp-skills\\" SKILL.md README.md references agents
 ```
-unreal-mcp-skills/
-├── SKILL.md                          # Main skill file (Agent load entry point)
-├── skills.sh.json                    # skills.sh discovery metadata
+
+Expected key files:
+
+```text
+unreal-mcp/
+├── SKILL.md
+├── README.md
+├── skills.sh.json
 ├── agents/
-│   ├── claude.md                     # Claude Code configuration instructions
-│   └── openai.yaml                   # Codex/OpenAI configuration instructions
+│   ├── claude.md
+│   └── openai.yaml
+├── scripts/
+│   ├── configure-unreal-mcp.ps1
+│   └── validate-skill.ps1
 └── references/
-    ├── mcp-tools.md                  # Full MCP toolset reference documentation
-    └── examples/                     # Example MCP configs (copy to project root)
-        ├── .mcp.json                 # Claude Code config
-        ├── .cursor/mcp.json          # Cursor config
-        ├── .codex/config.toml        # Codex config
-        ├── .vscode/mcp.json          # VS Code config
-        └── .gemini/settings.json     # Gemini config
+    ├── configure-workflow.md
+    ├── mcp-tools.md
+    ├── uasset-read-comparison.md
+    └── examples/
 ```
 
-## Documentation
+## Official Reference
 
-- **[SKILL.md](SKILL.md)** — Full Agent instructions (workflows, toolsets, safety rules, debugging)
-- **[references/mcp-tools.md](references/mcp-tools.md)** — Installation guide, architecture, toolset map, Blueprint manual, custom tool development
-- **[Epic MCP Official Documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)** — Official Unreal documentation
+- [Epic Unreal MCP documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)
+
