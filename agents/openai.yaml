@@ -1,7 +1,7 @@
 interface:
   display_name: "Unreal MCP"
   short_description: "Use Unreal MCP and ToolsetRegistry safely."
-  default_prompt: "Use $unreal-mcp-skills to inspect available Unreal toolsets and perform the requested editor task safely."
+  default_prompt: "Use $unreal-mcp to inspect available Unreal toolsets and perform the requested editor task safely."
 
 # Codex MCP config (.codex/config.toml):
 # [mcp_servers.unreal-mcp]
