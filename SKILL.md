@@ -26,6 +26,8 @@ Read `references/configure-workflow.md` before handling `/unreal-mcp:configure` 
 
 Read `references/uasset-read-comparison.md` when using UE MCP as editor-side comparison evidence for `uasset_read` outputs.
 
+Read `references/find-editor-installations.md` when you need to discover locally installed Unreal Editor versions or record installation paths to memory.
+
 ## Skill Activation
 
 Use this project skill when the user explicitly invokes `$unreal-mcp`, `/unreal-mcp`, or `/ue-mcp` (alias), asks to control or inspect the currently running UE editor through MCP, asks how to enable Unreal MCP, or asks which UE MCP Toolset should handle an editor task.
@@ -39,6 +41,7 @@ Use this project skill when the user explicitly invokes `$unreal-mcp`, `/unreal-
 | `/unreal-mcp:configure <target>` | Configure MCP for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Read `references/configure-workflow.md`, use the bundled configure helper as implementation support with dry-run first, then enable core MCP plugins, write Auto Start defaults, generate or merge client config, protect Codex TOML write-once behavior, and verify with `list_toolsets`. |
 | `/unreal-mcp:execute-blueprint` | Execute a Blueprint function in Unreal Engine |
 | `/unreal-mcp:open-widget` | Open an Editor Utility Widget in Unreal Engine |
+| `/unreal-mcp:find-installations` | Discover locally installed Unreal Engine editor versions and optionally record them to memory |
 
 All commands also accept the `ue-mcp` prefix, e.g. `/ue-mcp:configure`.
 
@@ -100,6 +103,164 @@ Optional toolset plugins under `Engine/Plugins/Experimental/Toolsets/*` add MCP-
 - Logs and diagnostics: use `LogsToolset.GetLogEntries` with `category: ""` and a narrow `pattern`.
 - Automation tests: call `DiscoverTests`, then `ListTests`; run tests only when the user asks for test execution.
 - AgentSkill assets: call `ListSkills` and `GetSkills` freely; call `CreateSkill` or `UpdateSkill` only after explicit permission.
+
+## Finding Local Editor Installations
+
+When the user asks to find installed Unreal Editor versions, use the `scripts/find-ue-installations.py` script to discover all local UE installations.
+
+### Discovery workflow
+
+1. Run the discovery script:
+   ```bash
+   python scripts/find-ue-installations.py
+   ```
+
+2. The script searches three sources:
+   - Epic Games Launcher manifest (most reliable)
+   - Windows registry entries
+   - Common default installation paths
+
+3. Output includes for each installation:
+   - `path`: Full installation directory
+   - `editor_exe`: Path to UnrealEditor.exe
+   - `version`: Detected version (e.g., "5.4.0")
+   - `source`: How it was discovered
+
+### Recording to memory
+
+After discovering installations, record them to memory for future sessions:
+
+```python
+# Store in memory for later use
+memory_data = {
+    "ue_installations": script_output["installations"],
+    "discovered_at": timestamp,
+    "system": "windows"
+}
+```
+
+This is useful when:
+- The user wants to remember which UE versions are available
+- Automation scripts need to find the correct editor path
+- Troubleshooting version compatibility issues
+
+### Using discovered paths
+
+Once recorded, the paths can be used to:
+- Launch the editor with a project: `"path/to/UnrealEditor.exe" "project.uproject"`
+- Verify the correct version is installed for a project
+- Configure CI/CD pipelines with the correct editor path
+
+Read `references/find-editor-installations.md` for detailed troubleshooting and additional usage patterns.
+
+## Pre-Launch Editor Check
+
+Before launching the Unreal Editor for any project, always verify that the MCP plugin is configured. This prevents connection failures and ensures the agent can communicate with the editor.
+
+### Check workflow
+
+1. **Locate the .uproject file** in the target project directory
+2. **Read the .uproject JSON** and check the `Plugins` array for `ModelContextProtocol` and `ToolsetRegistry`
+3. **If plugins are missing**, run the configure script to add them:
+   ```bash
+   python scripts/configure-unreal-mcp.py -ProjectPath "path/to/project" -EnablePlugins -AutoStart
+   ```
+4. **If plugins are present**, verify they are enabled (set to `true`)
+5. **Then launch the editor** with the project
+
+### Why this matters
+
+- Unreal MCP requires both `ModelContextProtocol` and `ToolsetRegistry` plugins to be enabled
+- Without these plugins, the MCP server cannot start and the agent cannot connect
+- The configure script safely adds plugins without overwriting existing configuration
+- This check prevents wasted time debugging connection issues after editor launch
+
+### Example flow
+
+```
+User: "Open my project in Unreal"
+Agent:
+1. Find project .uproject file
+2. Check plugins array in .uproject
+3. If missing → run configure script with -EnablePlugins
+4. Launch editor: "UnrealEditor.exe" "project.uproject"
+5. Wait for editor to start
+6. Connect via MCP and verify with list_toolsets
+```
+
+### Safety note
+
+The configure script uses dry-run by default when called manually. When called programmatically as part of the pre-launch check, it directly modifies the .uproject file. Always ensure the project is backed up or version-controlled before running.
+
+## Common MCP Issues and Solutions
+
+Based on analysis of Claude Code history, these are the most frequent MCP-specific problems agents encounter.
+
+### 1. Connection Issues
+
+**Symptom**: Agent cannot connect to MCP server, `list_toolsets` returns nothing or times out.
+
+**Solutions**:
+- Run `ModelContextProtocol.StartServer [port]` in editor console
+- Verify port (default 8000) matches in config and editor settings
+- Generate config: `ModelContextProtocol.GenerateClientConfig ClaudeCode`
+- Ensure agent launched from project root where config was generated
+- Check firewall allows localhost:8000 (MCP only binds to loopback)
+
+### 2. Plugin Issues
+
+**Symptom**: `ModelContextProtocol` or `ToolsetRegistry` not in plugin list, tools not appearing.
+
+**Solutions**:
+- Enable in Edit > Plugins, search "Unreal MCP" or "ModelContextProtocol"
+- Add to .uproject if missing:
+  ```json
+  {"Name": "ModelContextProtocol", "Enabled": true},
+  {"Name": "ToolsetRegistry", "Enabled": true}
+  ```
+- Enable specific toolset plugins under Engine > Plugins > Experimental > Toolsets
+
+### 3. Toolset Discovery Problems
+
+**Symptom**: `list_toolsets` returns empty or incomplete list, specific toolsets missing.
+
+**Solutions**:
+- Run `ModelContextProtocol.RefreshTools` after enabling plugins
+- Disconnect and reconnect client after refresh
+- Restart editor if hot reload doesn't work
+- Activate game features that provide toolsets
+
+### 4. Blueprint Graph MCP Issues
+
+**Symptom**: `read_graph_dsl` returns empty, `find_nodes` fails, graph operations error.
+
+**Solutions**:
+- Empty Graph DSL is normal for some graphs; use `find_nodes` with `title: ""` as fallback
+- Get exact graph refPath from `list_graphs` first
+- Pass UObject references as `{"refPath": "/Game/...Asset.Asset:EventGraph"}`, not bare string
+- Compile Blueprint in editor before reading
+
+### 5. Save/Compile During MCP Operations
+
+**Symptom**: Save operations fail, changes not persisted after MCP edits.
+
+**Solutions**:
+- Stop Play-in-Editor before save/compile operations
+- Save assets before compiling, compile before saving project
+- Use `ModelContextProtocol.StopServer` then `StartServer` if registry is stale
+
+## MCP Debugging Workflow
+
+When encountering MCP issues, follow this systematic approach:
+
+1. **Check connection**: Call `list_toolsets` - if fails, connection issue
+2. **Check plugins**: Verify `ModelContextProtocol` and `ToolsetRegistry` enabled
+3. **Check server**: Run `ModelContextProtocol.StartServer [port]` if not running
+4. **Check config**: Generate client config with `ModelContextProtocol.GenerateClientConfig`
+5. **Check logs**: Use `LogModelContextProtocol` category in Output Log
+6. **Refresh tools**: Run `ModelContextProtocol.RefreshTools` after changes
+7. **Clean restart**: Stop and start server for fresh registry rebuild
+8. **Check PIE**: Stop Play-in-Editor if experiencing issues
 
 ## Blueprint EventGraph Reading
 

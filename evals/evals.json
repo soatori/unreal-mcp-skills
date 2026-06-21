@@ -1,0 +1,35 @@
+{
+  "skill_name": "unreal-mcp",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Find all locally installed Unreal Engine versions on my system",
+      "expected_output": "The skill should run find-ue-installations.py and return a list of installed UE versions with paths and versions",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "My UE project is at D:/Projects/MyGame. Check if the MCP plugin is configured before I launch the editor",
+      "expected_output": "The skill should check the .uproject file for ModelContextProtocol and ToolsetRegistry plugins, and run configure script if missing",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I can't connect to the MCP server. list_toolsets returns nothing",
+      "expected_output": "The skill should provide troubleshooting steps from the Common MCP Issues section",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "The Blueprint graph read_graph_dsl returns empty string",
+      "expected_output": "The skill should explain this is normal and suggest using find_nodes as fallback",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "How do I refresh the toolset list after enabling new plugins?",
+      "expected_output": "The skill should explain to run ModelContextProtocol.RefreshTools",
+      "files": []
+    }
+  ]
+}
