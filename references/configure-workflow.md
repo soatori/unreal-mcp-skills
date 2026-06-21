@@ -6,19 +6,21 @@ Use this reference when handling `/unreal-mcp:configure <target>` or `/ue-mcp:co
 
 Run from the skill directory or pass the full script path:
 
-```powershell
-.\scripts\configure-unreal-mcp.ps1 -ProjectPath "E:\Path\Project" -Target all -Port 8000 -DryRun
+```bash
+python scripts/configure-unreal-mcp.py -ProjectPath "/path/to/Project" -Target all -Port 8000 -DryRun
 ```
 
 Targets are `claude`, `codex`, `cursor`, `vscode`, `gemini`, and `all`.
 
 Important switches:
 
-- `-DryRun`: print planned file changes without writing. Use this first.
-- `-EnablePlugins`: add `ModelContextProtocol` and `ToolsetRegistry` entries to the `.uproject`.
-- `-AutoStart`: write project default MCP settings to `Config/DefaultEngine.ini`.
-- `-Verify`: try a short HTTP request to `http://127.0.0.1:<Port>/mcp`.
-- `-Target all`: enables plugins, writes Auto Start defaults, and configures all supported clients.
+- `-DryRun` or `--dry-run`: print planned file changes without writing. Use this first.
+- `-EnablePlugins` or `--enable-plugins`: add `ModelContextProtocol` and `ToolsetRegistry` entries to the `.uproject`.
+- `-AutoStart` or `--auto-start`: write project default MCP settings to `Config/DefaultEngine.ini`.
+- `-Verify` or `--verify`: try a short HTTP request to `http://127.0.0.1:<Port>/mcp`.
+- `-Target all` or `--target all`: enables plugins, writes Auto Start defaults, and configures all supported clients.
+
+The script is Python and cross-platform. It accepts the UE-style `-ProjectPath`, `-Target`, `-Port`, `-DryRun`, `-EnablePlugins`, `-AutoStart`, and `-Verify` flags, plus lowercase GNU-style aliases.
 
 ## What The Script Changes
 

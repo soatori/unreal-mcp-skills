@@ -27,14 +27,14 @@ $unreal-mcp
 1. Start from a UE project root or provide a `.uproject` path.
 2. Run a dry-run configuration check:
 
-   ```powershell
-   .\scripts\configure-unreal-mcp.ps1 -ProjectPath "E:\Path\Project" -Target all -DryRun
+   ```bash
+   python scripts/configure-unreal-mcp.py -ProjectPath "/path/to/Project" -Target all -DryRun
    ```
 
 3. If the planned changes are correct, run the real configuration:
 
-   ```powershell
-   .\scripts\configure-unreal-mcp.ps1 -ProjectPath "E:\Path\Project" -Target all -Verify
+   ```bash
+   python scripts/configure-unreal-mcp.py -ProjectPath "/path/to/Project" -Target all -Verify
    ```
 
 4. Launch or restart Unreal Editor.
@@ -77,15 +77,15 @@ For parser comparison work, read `references/uasset-read-comparison.md`.
 
 Run the skill consistency check after editing docs, examples, metadata, or scripts:
 
-```powershell
-.\scripts\validate-skill.ps1
+```bash
+python scripts/validate-skill.py
 ```
 
 Useful local checks:
 
-```powershell
-Get-ChildItem -Recurse references\examples
-rg -n "/unreal-mcp-skills|unreal-mcp-skills\\" SKILL.md README.md references agents
+```bash
+find references/examples -type f
+rg -n '/unreal-mcp-skills|unreal-mcp-skills\\' SKILL.md README.md references agents
 ```
 
 Expected key files:
@@ -99,8 +99,8 @@ unreal-mcp/
 │   ├── claude.md
 │   └── openai.yaml
 ├── scripts/
-│   ├── configure-unreal-mcp.ps1
-│   └── validate-skill.ps1
+│   ├── configure-unreal-mcp.py
+│   └── validate-skill.py
 └── references/
     ├── configure-workflow.md
     ├── mcp-tools.md

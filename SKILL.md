@@ -36,7 +36,7 @@ Use this project skill when the user explicitly invokes `$unreal-mcp`, `/unreal-
 
 | Command | Description |
 |---|---|
-| `/unreal-mcp:configure <target>` | Configure MCP for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Read `references/configure-workflow.md`, run `scripts/configure-unreal-mcp.ps1` with `-DryRun` first, then enable required plugins, write Auto Start defaults, generate or merge client config, protect Codex TOML write-once behavior, and verify with `list_toolsets`. |
+| `/unreal-mcp:configure <target>` | Configure MCP for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Read `references/configure-workflow.md`, run `python scripts/configure-unreal-mcp.py ... -DryRun` first, then enable required plugins, write Auto Start defaults, generate or merge client config, protect Codex TOML write-once behavior, and verify with `list_toolsets`. |
 | `/unreal-mcp:execute-blueprint` | Execute a Blueprint function in Unreal Engine |
 | `/unreal-mcp:open-widget` | Open an Editor Utility Widget in Unreal Engine |
 
@@ -65,7 +65,7 @@ Keep these activation layers separate:
 ## Workflow
 
 1. Confirm Unreal MCP tools are exposed in the current agent session.
-2. If no Unreal MCP tools are exposed and the user asks for setup, read `references/configure-workflow.md` and use `scripts/configure-unreal-mcp.ps1 -DryRun` before any write. Otherwise guide the user to enable **Unreal MCP**, configure Auto Start or run `ModelContextProtocol.StartServer [port]`, generate client config with `ModelContextProtocol.GenerateClientConfig ClaudeCode|Cursor|VSCode|Gemini|Codex|All`, and restart/connect the agent from the project root where the config was written.
+2. If no Unreal MCP tools are exposed and the user asks for setup, read `references/configure-workflow.md` and use `python scripts/configure-unreal-mcp.py ... -DryRun` before any write. Otherwise guide the user to enable **Unreal MCP**, configure Auto Start or run `ModelContextProtocol.StartServer [port]`, generate client config with `ModelContextProtocol.GenerateClientConfig ClaudeCode|Cursor|VSCode|Gemini|Codex|All`, and restart/connect the agent from the project root where the config was written.
 3. Prefer Tool Search mode. Call `list_toolsets`, choose the capability domain, call `describe_toolset` for the exact Toolset, then call the desired tool through `call_tool`.
 4. In this MCP wrapper, pass the full Toolset name as `toolset_name` and the short tool name as `tool_name`. For example, use `toolset_name: "editor_toolset.toolsets.scene.SceneTools"` and `tool_name: "get_current_level"`, not the fully qualified tool name.
 5. Do not assume a documented Toolset is enabled. Use the current `list_toolsets` result as truth, then inspect schemas with `describe_toolset` before forming arguments.
