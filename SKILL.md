@@ -38,7 +38,7 @@ Use this project skill when the user explicitly invokes `$unreal-mcp`, `/unreal-
 
 | Command | Description |
 |---|---|
-| `/unreal-mcp:configure <target>` | Configure MCP for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Read `references/configure-workflow.md`, use the bundled configure helper as implementation support with dry-run first, then enable core MCP plugins, write Auto Start defaults, generate or merge client config, protect Codex TOML write-once behavior, and verify with `list_toolsets`. |
+| `/unreal-mcp:configure <target>` | Automatically configure the current UE project for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Read `references/configure-workflow.md`, resolve the project root or `.uproject`, run the bundled configure helper with dry-run first, then write core MCP plugins, common Toolset plugins, Auto Start defaults, and target client config unless dry-run exposes a blocking condition. After writing, prompt for save/restart or manual restart. |
 | `/unreal-mcp:execute-blueprint` | Execute a Blueprint function in Unreal Engine |
 | `/unreal-mcp:open-widget` | Open an Editor Utility Widget in Unreal Engine |
 | `/unreal-mcp:find-installations` | Discover locally installed Unreal Engine editor versions and optionally record them to memory |
@@ -68,7 +68,7 @@ Keep these activation layers separate:
 ## Workflow
 
 1. Confirm Unreal MCP tools are exposed in the current agent session.
-2. If no Unreal MCP tools are exposed and the user asks for setup, read `references/configure-workflow.md` and run the configure workflow with dry-run before any write. Otherwise guide the user to enable **Unreal MCP**, configure Auto Start or run `ModelContextProtocol.StartServer [port]`, generate client config with `ModelContextProtocol.GenerateClientConfig ClaudeCode|Cursor|VSCode|Gemini|Codex|All`, and restart/connect the agent from the project root where the config was written.
+2. If no Unreal MCP tools are exposed and the user asks for setup, read `references/configure-workflow.md` and execute the configure workflow. Do not stop at asking whether guidance is needed. Resolve a UE project root or `.uproject`, run dry-run, then perform the write unless the project path is ambiguous, Codex TOML write-once protection blocks the run, or dry-run shows an unexpected edit. Only fall back to manual instructions when the helper cannot safely modify the project. After writing, run the post-configure save/restart dialog below instead of ending with a bare manual restart instruction.
 3. Prefer Tool Search mode. Call `list_toolsets`, choose the capability domain, call `describe_toolset` for the exact Toolset, then call the desired tool through `call_tool`.
 4. In this MCP wrapper, pass the full Toolset name as `toolset_name` and the short tool name as `tool_name`. For example, use `toolset_name: "editor_toolset.toolsets.scene.SceneTools"` and `tool_name: "get_current_level"`, not the fully qualified tool name.
 5. Do not assume a documented Toolset is enabled. Use the current `list_toolsets` result as truth, then inspect schemas with `describe_toolset` before forming arguments.
@@ -90,6 +90,19 @@ Only the live `list_toolsets` result is authoritative. Common baseline toolsets:
 For the full toolset map including optional plugins (PCG, GAS, Niagara, UMG, MVVM, etc.), see the "Built-In Toolset Map" section in `references/mcp-tools.md`.
 
 Optional toolset plugins under `Engine/Plugins/Experimental/Toolsets/*` add MCP-visible domains. Enable the Toolset plugins needed for the current task, or use `AllToolsets` when broad discovery/prototyping is explicitly useful and the user accepts the startup/schema-noise tradeoff.
+
+The configure workflow enables the `common` Toolset profile by default: `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset` in addition to `ModelContextProtocol` and `ToolsetRegistry`. Use `-ToolsetProfile core` only when the project should receive transport/discovery plugins without common editor automation Toolsets. Use `-ToolsetProfile all` only for broad discovery/prototyping.
+
+## Post-Configure Save/Restart Dialog
+
+After the configure workflow writes `.uproject` plugin entries, Toolset profile changes, `Config/DefaultEngine.ini`, or client config, do not repeatedly finish with only "restart manually." Treat restart as a conversation choice:
+
+1. Tell the user which project files were changed and that UE may need a restart for plugin/toolset changes to load.
+2. Prompt the user to save the project before restart. If MCP is already connected, inspect dirty assets first and save only with explicit permission. If MCP is not connected, ask the user to save in the editor manually before continuing.
+3. Ask whether the agent should launch/restart the editor for this project now.
+4. If the user confirms agent restart/launch, use the known editor path or run the editor installation discovery workflow first. Never terminate a running Unreal Editor process without explicit confirmation.
+5. If the user declines, provide concise manual steps: save project, close and reopen the UE project, start from the project root, then call `list_toolsets`.
+6. If the user wants to continue without restart, state that newly enabled plugins or Toolsets may not appear until restart and continue only with currently available tools.
 
 ## Typical Tool Calls
 
@@ -161,18 +174,19 @@ Before launching the Unreal Editor for any project, always verify that the MCP p
 
 1. **Locate the .uproject file** in the target project directory
 2. **Read the .uproject JSON** and check the `Plugins` array for `ModelContextProtocol` and `ToolsetRegistry`
-3. **If plugins are missing**, run the configure script to add them:
+3. **If plugins or client config are missing**, run the configure workflow to add them:
    ```bash
-   python scripts/configure-unreal-mcp.py -ProjectPath "path/to/project" -EnablePlugins -AutoStart
+   python scripts/configure-unreal-mcp.py -ProjectPath "path/to/project" -Target codex -DryRun
+   python scripts/configure-unreal-mcp.py -ProjectPath "path/to/project" -Target codex
    ```
-4. **If plugins are present**, verify they are enabled (set to `true`)
+4. **If plugins are present**, verify they are enabled (set to `true`) and client config points at `http://127.0.0.1:8000/mcp`
 5. **Then launch the editor** with the project
 
 ### Why this matters
 
 - Unreal MCP requires both `ModelContextProtocol` and `ToolsetRegistry` plugins to be enabled
 - Without these plugins, the MCP server cannot start and the agent cannot connect
-- The configure script safely adds plugins without overwriting existing configuration
+- The configure script safely adds core MCP plugins and the common Toolset profile without overwriting existing configuration
 - This check prevents wasted time debugging connection issues after editor launch
 
 ### Example flow
@@ -182,7 +196,7 @@ User: "Open my project in Unreal"
 Agent:
 1. Find project .uproject file
 2. Check plugins array in .uproject
-3. If missing → run configure script with -EnablePlugins
+3. If missing → run configure workflow dry-run, then real write
 4. Launch editor: "UnrealEditor.exe" "project.uproject"
 5. Wait for editor to start
 6. Connect via MCP and verify with list_toolsets
@@ -190,7 +204,7 @@ Agent:
 
 ### Safety note
 
-The configure script uses dry-run by default when called manually. When called programmatically as part of the pre-launch check, it directly modifies the .uproject file. Always ensure the project is backed up or version-controlled before running.
+The configure workflow must dry-run first, then write project files when the requested task is to configure or open an MCP-enabled project. It modifies the `.uproject`, `Config/DefaultEngine.ini`, and target client config; tell the user which files will change before writing.
 
 ## Common MCP Issues and Solutions
 

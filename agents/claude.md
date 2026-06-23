@@ -2,6 +2,16 @@
 
 ## Setup
 
+Prefer the automatic skill workflow:
+
+1. From the agent session, invoke `/unreal-mcp:configure claude` or `/ue-mcp:configure claude`.
+2. Let the agent resolve the UE project, run dry-run, then write `.uproject`, `Config/DefaultEngine.ini`, `.mcp.json`, and the common Toolset profile.
+3. Save the UE project before restart. If the editor is not MCP-connected yet, ask the user to save manually.
+4. Ask whether the user wants the agent to launch/restart the editor now or prefers to restart manually. Do not terminate a running editor without explicit confirmation.
+5. Launch Claude Code **from that project root** so it picks up `.mcp.json`.
+
+Manual fallback:
+
 1. Enable the **Unreal MCP** plugin in UE Editor (Edit > Plugins).
 2. Start the MCP server: Auto Start or `ModelContextProtocol.StartServer [port]`.
 3. Generate client config from the UE Editor console:

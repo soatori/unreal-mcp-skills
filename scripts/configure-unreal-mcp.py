@@ -13,7 +13,9 @@ from typing import Any
 
 
 CLIENTS = ("claude", "codex", "cursor", "vscode", "gemini")
-REQUIRED_PLUGINS = ("ModelContextProtocol", "ToolsetRegistry")
+CORE_PLUGINS = ("ModelContextProtocol", "ToolsetRegistry")
+COMMON_TOOLSET_PLUGINS = ("EditorToolset", "AutomationTestToolset", "LiveCodingToolset")
+ALL_TOOLSET_PLUGINS = ("AllToolsets",)
 INI_SECTION = "/Script/ModelContextProtocol.ModelContextProtocolSettings"
 
 
@@ -28,8 +30,17 @@ def parse_args() -> argparse.Namespace:
         help="Client target to configure.",
     )
     parser.add_argument("-Port", "--port", type=int, default=8000, help="Unreal MCP server port.")
-    parser.add_argument("-AutoStart", "--auto-start", action="store_true", help="Write Auto Start defaults.")
-    parser.add_argument("-EnablePlugins", "--enable-plugins", action="store_true", help="Enable core MCP plugins.")
+    parser.add_argument("-AutoStart", "--auto-start", action="store_true", help="Write Auto Start defaults. Default behavior already writes them.")
+    parser.add_argument("-EnablePlugins", "--enable-plugins", action="store_true", help="Enable core MCP plugins. Default behavior already enables them.")
+    parser.add_argument(
+        "-ToolsetProfile",
+        "--toolset-profile",
+        choices=("core", "common", "all"),
+        default="common",
+        help="Toolset plugin profile to enable with the core MCP plugins.",
+    )
+    parser.add_argument("--skip-auto-start", action="store_true", help="Do not write Auto Start defaults.")
+    parser.add_argument("--skip-enable-plugins", action="store_true", help="Do not enable core MCP plugins.")
     parser.add_argument("-Verify", "--verify", action="store_true", help="Probe the MCP endpoint after writing.")
     parser.add_argument("-DryRun", "--dry-run", action="store_true", help="Print planned changes without writing.")
     return parser.parse_args()
@@ -78,7 +89,17 @@ def show_plan(message: str, dry_run: bool) -> None:
     print(f"{prefix}{message}")
 
 
-def enable_uproject_plugins(uproject: Path, dry_run: bool) -> None:
+def plugin_names_for_profile(profile: str) -> tuple[str, ...]:
+    if profile == "core":
+        return CORE_PLUGINS
+    if profile == "common":
+        return (*CORE_PLUGINS, *COMMON_TOOLSET_PLUGINS)
+    if profile == "all":
+        return (*CORE_PLUGINS, *ALL_TOOLSET_PLUGINS)
+    fail(f"Unsupported Toolset profile: {profile}")
+
+
+def enable_uproject_plugins(uproject: Path, plugin_names: tuple[str, ...], dry_run: bool) -> None:
     project = read_json(uproject)
     plugins = project.get("Plugins")
     if plugins is None:
@@ -87,7 +108,7 @@ def enable_uproject_plugins(uproject: Path, dry_run: bool) -> None:
         fail(f"Plugins must be an array in {uproject}")
 
     changed = False
-    for plugin_name in REQUIRED_PLUGINS:
+    for plugin_name in plugin_names:
         entry = next((item for item in plugins if isinstance(item, dict) and item.get("Name") == plugin_name), None)
         if entry is None:
             plugins.append({"Name": plugin_name, "Enabled": True})
@@ -98,10 +119,10 @@ def enable_uproject_plugins(uproject: Path, dry_run: bool) -> None:
 
     if changed:
         project["Plugins"] = plugins
-        show_plan(f"Enable ModelContextProtocol and ToolsetRegistry in {uproject}", dry_run)
+        show_plan(f"Enable {', '.join(plugin_names)} in {uproject}", dry_run)
         write_json(uproject, project, dry_run)
     else:
-        print(f"Plugins already enabled in {uproject}")
+        print(f"Requested plugins already enabled in {uproject}")
 
 
 def set_ini_value(lines: list[str], section: str, key: str, value: str) -> None:
@@ -214,6 +235,7 @@ def main() -> int:
     print(f"UE project: {uproject}")
     print(f"Target: {args.target}")
     print(f"Server URL: {server_url}")
+    print(f"Toolset profile: {args.toolset_profile}")
 
     codex_path = project_root / ".codex" / "config.toml"
     if "codex" in clients and codex_path.exists():
@@ -222,19 +244,19 @@ def main() -> int:
             "delete or edit the stale file manually before regenerating. No changes were written."
         )
 
-    if args.enable_plugins or args.target == "all":
-        enable_uproject_plugins(uproject, args.dry_run)
+    if not args.skip_enable_plugins:
+        enable_uproject_plugins(uproject, plugin_names_for_profile(args.toolset_profile), args.dry_run)
     else:
-        print("Plugin changes skipped. Pass -EnablePlugins or use -Target all to enable core MCP plugins.")
+        print("Plugin changes skipped by --skip-enable-plugins.")
 
-    if args.auto_start or args.target == "all":
+    if not args.skip_auto_start:
         configure_editor_settings(project_root, args.port, args.dry_run)
         print(
             "Editor settings are written as project defaults. If UE ignores a setting name in this engine version, "
             "set Auto Start Server in Editor Preferences > General > Model Context Protocol."
         )
     else:
-        print("Auto Start changes skipped. Pass -AutoStart or use -Target all.")
+        print("Auto Start changes skipped by --skip-auto-start.")
 
     for client in clients:
         configure_client(project_root, client, server_url, args.dry_run)
@@ -243,6 +265,11 @@ def main() -> int:
     print("Editor console fallback:")
     print(f"  ModelContextProtocol.StartServer {args.port}")
     print(f"  ModelContextProtocol.GenerateClientConfig {editor_client_name(args.target)}")
+    print()
+    print("Post-configure next step:")
+    print("  Save the UE project before restart.")
+    print("  Ask whether to launch/restart the editor now or let the user restart manually.")
+    print("  Do not terminate a running Unreal Editor process without explicit confirmation.")
 
     if args.verify:
         verify_server(server_url, project_root, args.port)

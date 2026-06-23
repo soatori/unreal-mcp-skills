@@ -12,6 +12,8 @@ Agent guidance for operating Unreal Editor through Epic's official **ModelContex
 npx skills add soatori/unreal-mcp-skills
 ```
 
+The package name is `unreal-mcp-skills`. The skill command is `unreal-mcp`. Do not use `/unreal-mcp-skills` as a command.
+
 Use one of these forms in an agent session:
 
 ```text
@@ -35,7 +37,7 @@ Enable Toolset plugins according to the task. `AllToolsets` is acceptable when b
 
 ## Configure Command
 
-`/unreal-mcp:configure <target>` and `/ue-mcp:configure <target>` map to the script-backed workflow in `references/configure-workflow.md`.
+`/unreal-mcp:configure <target>` and `/ue-mcp:configure <target>` automatically set up the target UE project. The agent resolves the project root, runs a dry-run, reports planned files, then writes the core MCP plugins, common Toolset plugins, Auto Start defaults, and selected client config unless a blocker appears.
 
 Supported targets:
 
@@ -49,6 +51,12 @@ Supported targets:
 | `all` | all supported clients |
 
 Codex TOML is protected as write-once. If `.codex/config.toml` already exists, the script stops and asks for manual cleanup instead of overwriting it.
+
+The configure helper is implementation support for the skill command. `Target` selects the client config; it does not skip project setup. For example, `/ue-mcp:configure codex` still enables `ModelContextProtocol`, `ToolsetRegistry`, `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset`, then writes `Config/DefaultEngine.ini` defaults.
+
+The default Toolset profile is `common`, which covers the most frequent editor tasks: editor state/logs/viewport/selection, scene/actor/asset/Blueprint/material operations, automation test discovery, and Live Coding. Use `-ToolsetProfile core` for core MCP transport only, or `-ToolsetProfile all` for broad exploration.
+
+After configuration, the agent should prompt for the save/restart choice instead of only telling you to restart manually. Save the UE project first, then choose whether the agent should launch/restart the editor or whether you will reopen the project yourself.
 
 ## What This Skill Covers
 
@@ -92,7 +100,8 @@ unreal-mcp/
 │   └── openai.yaml
 ├── scripts/
 │   ├── configure-unreal-mcp.py
-│   └── validate-skill.py
+│   ├── validate-skill.py
+│   └── find-ue-installations.py
 └── references/
     ├── configure-workflow.md
     ├── mcp-tools.md

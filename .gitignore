@@ -10,3 +10,5 @@ Thumbs.db
 
 # Claude Code memory (user-specific)
 .claude/
+.agents/
+.codex/

@@ -4,7 +4,7 @@
       "name": "unreal-mcp-skills",
       "aliases": ["ue-mcp-skills"],
       "path": "SKILL.md",
-      "description": "Operate the Unreal Editor through Epic's official ModelContextProtocol (MCP) toolset. Guide agents to discover toolsets, call MCP tools safely, and debug configuration.",
+      "description": "Configure UE projects for Epic's official ModelContextProtocol (MCP), discover Toolsets, call editor tools safely, and debug MCP connections.",
       "author": "soatori",
       "version": "1.0.1"
     }

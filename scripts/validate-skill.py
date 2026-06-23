@@ -39,6 +39,7 @@ def main() -> int:
     openai = read_text("agents/openai.yaml")
     configure_workflow = read_text("references/configure-workflow.md")
     mcp_tools = read_text("references/mcp-tools.md")
+    configure_script = read_text("scripts/configure-unreal-mcp.py")
     policy_text = "\n".join((skill, readme, configure_workflow, mcp_tools))
 
     if not re.search(r"(?m)^name:\s*unreal-mcp\s*$", skill):
@@ -55,6 +56,8 @@ def main() -> int:
         add_error("SKILL.md must point uasset comparison tasks to references/uasset-read-comparison.md")
     if "configure helper" not in skill or f"scripts/configure-unreal-mcp{ps_suffix}" in skill:
         add_error("SKILL.md must describe the configure helper without Windows-only script paths")
+    if "Do not stop at asking whether guidance is needed" not in skill:
+        add_error("SKILL.md workflow must require automatic project configuration, not guidance-only setup")
 
     if "npx skills add soatori/unreal-mcp-skills" not in readme:
         add_error("README.md must keep the skills.sh install command")
@@ -67,6 +70,30 @@ def main() -> int:
         add_error("README.md Quick Start should describe skill invocation, not manual configure helper execution")
     if ps_suffix in readme:
         add_error("README.md must not document Windows-only script commands")
+    if "automatically set up the target UE project" not in readme:
+        add_error("README.md Configure Command must state that project setup is automatic")
+    if "The target client does not limit project setup" not in configure_workflow:
+        add_error("configure-workflow.md must state that every target configures the UE project by default")
+    if "Do not merely ask whether the user wants guidance" not in configure_workflow:
+        add_error("configure-workflow.md must block guidance-only configure behavior")
+    if "not args.skip_enable_plugins" not in configure_script or "not args.skip_auto_start" not in configure_script:
+        add_error("configure helper must enable core plugins and Auto Start by default")
+    for token in ("COMMON_TOOLSET_PLUGINS", "EditorToolset", "AutomationTestToolset", "LiveCodingToolset", "ToolsetProfile"):
+        if token not in configure_script:
+            add_error(f"configure helper must support default common Toolset setup: {token}")
+        if token != "COMMON_TOOLSET_PLUGINS" and token not in policy_text:
+            add_error(f"docs must mention common Toolset setup: {token}")
+    restart_tokens = (
+        "Post-Configure Save/Restart Dialog",
+        "Should I launch or restart Unreal Editor for this project now",
+        "Do not terminate a running editor process without explicit confirmation",
+    )
+    for token in restart_tokens:
+        if token not in policy_text:
+            add_error(f"docs must include save/restart dialog guidance: {token}")
+    for token in ("Save the UE project before restart", "restart manually", "explicit confirmation"):
+        if token not in configure_script:
+            add_error(f"configure helper must print post-configure restart guidance: {token}")
     stale_limits = (
         "It" + " does" + " not" + " enable `" + "AllToolsets`",
         "does" + " not" + " enable `" + "AllToolsets`",
