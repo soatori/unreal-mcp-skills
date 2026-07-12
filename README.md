@@ -2,7 +2,7 @@
 
 # Unreal MCP Skill
 
-Agent guidance for operating Unreal Editor through Epic's official **ModelContextProtocol (MCP)** toolset.
+Agent automation for discovering, configuring, controlling, recovering, and verifying Unreal Editor through Epic's official **ModelContextProtocol (MCP)** toolset.
 
 > Supported version: UE 5.8+
 

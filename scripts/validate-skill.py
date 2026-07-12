@@ -92,6 +92,8 @@ def main() -> int:
         add_error("README.md must not document Windows-only script commands")
     if "automatically set up the target UE project" not in readme:
         add_error("README.md Configure Command must state that project setup is automatic")
+    if "Agent automation for discovering, configuring, controlling, recovering, and verifying Unreal Editor" not in readme:
+        add_error("README.md introduction must describe agent automation, not guidance")
     if "The target client does not limit project setup" not in configure_workflow:
         add_error("configure-workflow.md must state that every target configures the UE project by default")
     if "Do not merely ask whether the user wants guidance" not in configure_workflow:
@@ -135,6 +137,8 @@ def main() -> int:
             add_error("skills.sh.json aliases must include ue-mcp-skills")
         if entry.get("path") != "SKILL.md":
             add_error("skills.sh.json path must be SKILL.md")
+        if "automate unreal editor tasks" not in entry.get("description", "").lower():
+            add_error("skills.sh.json description must advertise agent automation")
     except Exception as exc:
         add_error(f"skills.sh.json is not valid JSON: {exc}")
 
@@ -142,6 +146,8 @@ def main() -> int:
         add_error("agents/openai.yaml display_name should be Unreal MCP")
     if "$unreal-mcp" not in openai:
         add_error("agents/openai.yaml default_prompt should mention $unreal-mcp")
+    if 'short_description: "Automate Unreal Editor tasks through official MCP."' not in openai:
+        add_error("agents/openai.yaml short description must advertise automation")
     if "execute the requested editor task" not in openai:
         add_error("agents/openai.yaml must tell the agent to execute the editor task")
 
