@@ -42,16 +42,16 @@ Unreal MCP runs calls serially on the editor game thread. Execute dependent call
 
 ## Activation and Commands
 
-Activate for `$unreal-mcp`, `/unreal-mcp`, `/ue-mcp`, or any request to inspect, configure, control, recover, or validate Unreal Editor through MCP. `unreal-mcp-skills` is the distribution name, not an agent command. Do not use `/unreal-mcp-skills` as a command.
+Activate for `$unreal-mcp`, `/unreal-mcp`, or any request to inspect, configure, control, recover, or validate Unreal Editor through MCP. `unreal-mcp-skills` is the distribution name, not an agent command. Do not use `/unreal-mcp-skills` as a command.
 
 | Command | Agent behavior |
 |---|---|
-| `/unreal-mcp:configure <target>` | Resolve one project, dry-run, configure it, recover/restart if needed, and verify the connection. |
+| `/unreal-mcp:configure <client>` | Resolve one project, dry-run, configure it and the selected client, recover/restart if needed, and verify the connection. |
 | `/unreal-mcp:execute-blueprint` | Discover the Blueprint execution capability, execute the requested function, and verify its effect. |
 | `/unreal-mcp:open-widget` | Discover the editor/widget capability, open the requested Editor Utility Widget, and verify it is open. |
 | `/unreal-mcp:find-installations` | Run the bundled discovery script and return verified editor paths and versions. |
 
-All commands accept the `ue-mcp` prefix. Claude Code uses project `.mcp.json`; Codex uses project `.codex/config.toml`. Do not create or manage cc-switch links.
+Claude Code uses project `.mcp.json`; Codex uses project `.codex/config.toml`. Do not create or manage cc-switch links.
 
 ## Automation State Machine
 

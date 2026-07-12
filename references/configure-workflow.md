@@ -1,12 +1,12 @@
 # Unreal MCP Configure Workflow
 
-Use this reference when handling `/unreal-mcp:configure <target>` or `/ue-mcp:configure <target>`.
+Use this reference when handling `/unreal-mcp:configure <client>`.
 
 The configure command is an automatic project setup workflow. Resolve, inspect, dry-run, write, recover the editor connection, and verify. Do not merely ask whether the user wants guidance, and do not substitute instructions for any step the agent can execute.
 
 ## Command
 
-The agent should invoke this workflow for `/unreal-mcp:configure <target>`. The bundled helper is implementation support; ordinary users should call the skill command instead of manually starting the helper.
+The agent should invoke this workflow for `/unreal-mcp:configure <client>`. The bundled helper is implementation support; ordinary users should call the skill command instead of manually starting the helper.
 
 ```bash
 python scripts/configure-unreal-mcp.py -ProjectPath "/path/to/Project" -Target all -Port 8000 -DryRun

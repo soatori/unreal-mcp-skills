@@ -19,18 +19,16 @@ Use one of these forms in an agent session:
 ```text
 $unreal-mcp
 /unreal-mcp
-/ue-mcp
-/unreal-mcp:configure all
-/ue-mcp:configure codex
+/unreal-mcp:configure <client>
 ```
 
 ## Agent Automation
 
-Invoke `$unreal-mcp`, `/unreal-mcp`, or `/ue-mcp` with the editor outcome you want. The skill directs the agent to discover the project and live Toolsets, configure or recover MCP when needed, execute the editor operation, and verify the result. Human input is reserved for an ambiguous target, a protected write, missing authorization, or a dirty-state safety gate that cannot be resolved through available controls.
+Invoke `$unreal-mcp` or `/unreal-mcp` with the editor outcome you want. The skill directs the agent to discover the project and live Toolsets, configure or recover MCP when needed, execute the editor operation, and verify the result. Human input is reserved for an ambiguous target, a protected write, missing authorization, or a dirty-state safety gate that cannot be resolved through available controls.
 
 ## Configure Command
 
-`/unreal-mcp:configure <target>` and `/ue-mcp:configure <target>` automatically set up the target UE project. The agent resolves the project root, runs a dry-run, reports planned files, then writes the core MCP plugins, common Toolset plugins, Auto Start defaults, and selected client config unless a blocker appears.
+`/unreal-mcp:configure <client>` automatically configures the current UE project and selected MCP client. The agent resolves a single `.uproject`, runs and inspects a dry-run, enables the selected Toolset profile, writes Auto Start defaults, and creates or merges the client configuration. It stops only for an ambiguous project, a protected existing configuration, or unexpected out-of-scope changes; otherwise it completes any required restart or connection recovery and verifies the live Toolsets.
 
 Supported targets:
 
@@ -45,7 +43,7 @@ Supported targets:
 
 Codex TOML is protected as write-once. If `.codex/config.toml` already exists, the script stops and asks for manual cleanup instead of overwriting it.
 
-The configure helper is implementation support for the skill command. `Target` selects the client config; it does not skip project setup. For example, `/ue-mcp:configure codex` still enables `ModelContextProtocol`, `ToolsetRegistry`, `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset`, then writes `Config/DefaultEngine.ini` defaults.
+The configure helper is implementation support for the skill command. `Client` selects the client config; it does not skip project setup. For example, `/unreal-mcp:configure codex` still enables `ModelContextProtocol`, `ToolsetRegistry`, `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset`, then writes `Config/DefaultEngine.ini` defaults.
 
 The default Toolset profile is `common`, which covers the most frequent editor tasks: editor state/logs/viewport/selection, scene/actor/asset/Blueprint/material operations, automation test discovery, and Live Coding. Use `-ToolsetProfile core` for core MCP transport only, or `-ToolsetProfile all` for broad exploration.
 

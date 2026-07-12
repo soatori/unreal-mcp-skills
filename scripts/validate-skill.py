@@ -45,8 +45,10 @@ def main() -> int:
 
     if not re.search(r"(?m)^name:\s*unreal-mcp\s*$", skill):
         add_error("SKILL.md frontmatter must use name: unreal-mcp")
-    if not all(token in skill for token in ("/unreal-mcp", "/ue-mcp", "$unreal-mcp")):
-        add_error("SKILL.md must document /unreal-mcp, /ue-mcp, and $unreal-mcp activation forms")
+    if not all(token in skill for token in ("/unreal-mcp", "$unreal-mcp")):
+        add_error("SKILL.md must document /unreal-mcp and $unreal-mcp activation forms")
+    if "/ue-mcp" in policy_text or "`ue-mcp` prefix" in policy_text:
+        add_error("Docs must use the canonical /unreal-mcp command without repeating the /ue-mcp alias")
     if "/unreal-mcp-skills" in skill and not re.search(r"Do not .*?/unreal-mcp-skills", skill):
         add_error("SKILL.md may mention /unreal-mcp-skills only to say it is not a command")
     if "unreal-mcp-skills\\" in skill:
@@ -90,8 +92,8 @@ def main() -> int:
         add_error("README.md Quick Start should describe skill invocation, not manual configure helper execution")
     if ps_suffix in readme:
         add_error("README.md must not document Windows-only script commands")
-    if "automatically set up the target UE project" not in readme:
-        add_error("README.md Configure Command must state that project setup is automatic")
+    if "automatically configures the current UE project and selected MCP client" not in readme:
+        add_error("README.md Configure Command must state that project and client setup is automatic")
     if "Agent automation for discovering, configuring, controlling, recovering, and verifying Unreal Editor" not in readme:
         add_error("README.md introduction must describe agent automation, not guidance")
     if "The target client does not limit project setup" not in configure_workflow:
