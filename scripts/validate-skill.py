@@ -47,8 +47,8 @@ def main() -> int:
         add_error("SKILL.md frontmatter must use name: unreal-mcp")
     if not all(token in skill for token in ("/unreal-mcp", "$unreal-mcp")):
         add_error("SKILL.md must document /unreal-mcp and $unreal-mcp activation forms")
-    if "/ue-mcp" in policy_text or "`ue-mcp` prefix" in policy_text:
-        add_error("Docs must use the canonical /unreal-mcp command without repeating the /ue-mcp alias")
+    if any("/ue-mcp" in text for text in (skill, configure_workflow, mcp_tools)):
+        add_error("Skill and reference prose must use the canonical /unreal-mcp command")
     if "/unreal-mcp-skills" in skill and not re.search(r"Do not .*?/unreal-mcp-skills", skill):
         add_error("SKILL.md may mention /unreal-mcp-skills only to say it is not a command")
     if "unreal-mcp-skills\\" in skill:
@@ -88,6 +88,9 @@ def main() -> int:
     if "scripts/validate-skill.py" not in readme:
         add_error("README.md must document the validation Python script")
     quick_start = readme.split("## Configure Command", 1)[0]
+    for alias_command in ("/ue-mcp", "/ue-mcp:configure <client>"):
+        if alias_command not in quick_start:
+            add_error(f"README.md command list must include supported alias: {alias_command}")
     if "scripts/configure-unreal-mcp.py" in quick_start:
         add_error("README.md Quick Start should describe skill invocation, not manual configure helper execution")
     if ps_suffix in readme:
