@@ -4,31 +4,55 @@
     {
       "id": 1,
       "prompt": "Find all locally installed Unreal Engine versions on my system",
-      "expected_output": "The skill should run find-ue-installations.py and return a list of installed UE versions with paths and versions",
+      "expected_output": "Run find-ue-installations.py, validate returned executable paths and versions, and report verified installations rather than giving discovery instructions.",
       "files": []
     },
     {
       "id": 2,
-      "prompt": "My UE project is at D:/Projects/MyGame. Check if the MCP plugin is configured before I launch the editor",
-      "expected_output": "The skill should check the .uproject file for ModelContextProtocol and ToolsetRegistry plugins, and run configure script if missing",
+      "prompt": "Open D:/Projects/MyGame in Unreal and make MCP ready for this session",
+      "expected_output": "Resolve the .uproject; inspect plugins, DefaultEngine.ini, client config, process, and endpoint; run configure dry-run then write if missing; launch or recover the editor; list live Toolsets and verify required schemas.",
       "files": []
     },
     {
       "id": 3,
       "prompt": "I can't connect to the MCP server. list_toolsets returns nothing",
-      "expected_output": "The skill should provide troubleshooting steps from the Common MCP Issues section",
+      "expected_output": "Treat an empty registry as failed discovery; execute connection recovery by checking configuration, port, editor process, and logs; start or refresh the server through available controls; reconnect and verify list_toolsets. Return a minimal blocker only with evidence that applicable control channels cannot perform the next action.",
       "files": []
     },
     {
       "id": 4,
-      "prompt": "The Blueprint graph read_graph_dsl returns empty string",
-      "expected_output": "The skill should explain this is normal and suggest using find_nodes as fallback",
+      "prompt": "The Blueprint graph read_graph_dsl returns an empty string; inspect the graph anyway",
+      "expected_output": "Use the live Blueprint schema, call find_nodes with an empty title, inspect node infos and connected subgraphs, and verify graph execution/data flow instead of treating empty DSL as an empty graph.",
       "files": []
     },
     {
       "id": 5,
-      "prompt": "How do I refresh the toolset list after enabling new plugins?",
-      "expected_output": "The skill should explain to run ModelContextProtocol.RefreshTools",
+      "prompt": "The GameplayTags Toolset is missing; enable what is needed and continue my task",
+      "expected_output": "Identify the providing plugin from authoritative metadata/source, inspect live Toolsets and plugin state, enable only the task-required plugin, attempt dynamic refresh/reconnect once when supported, then repeat list_toolsets and describe_toolset before continuing and verifying the task.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "The editor needs a restart after enabling the plugin and there are no unsaved assets",
+      "expected_output": "Match the editor process and verify full dirty-state through a discovered read-only schema immediately before graceful close, restart automatically when clean without force-kill escalation, reconnect, inspect MCP logs, and verify the required Toolset without asking for a restart choice.",
+      "files": []
+    },
+    {
+      "id": 7,
+      "prompt": "The editor needs a restart but MCP is disconnected and you cannot determine whether assets are unsaved",
+      "expected_output": "Do not assume a clean editor or terminate it. After bounded control-channel checks, return one minimal blocker for the restart attempt requesting save/discard of outstanding changes and confirmation that restart is safe, then resume automation.",
+      "files": []
+    },
+    {
+      "id": 8,
+      "prompt": "Set three object properties; the second write fails",
+      "expected_output": "Treat writes as non-transactional, perform and verify them serially, stop dependent writes after the failure, independently read actual state, and report the partial result and risk.",
+      "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "Create a UE AgentSkill asset for this project",
+      "expected_output": "List and inspect existing AgentSkills read-only, then request explicit permission before CreateSkill or UpdateSkill because they mutate Blueprint-backed assets.",
       "files": []
     }
   ]

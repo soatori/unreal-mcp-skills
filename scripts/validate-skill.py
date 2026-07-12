@@ -37,6 +37,7 @@ def main() -> int:
     readme = read_text("README.md")
     metadata_text = read_text("skills.sh.json")
     openai = read_text("agents/openai.yaml")
+    evals_text = read_text("evals/evals.json")
     configure_workflow = read_text("references/configure-workflow.md")
     mcp_tools = read_text("references/mcp-tools.md")
     configure_script = read_text("scripts/configure-unreal-mcp.py")
@@ -58,6 +59,25 @@ def main() -> int:
         add_error("SKILL.md must describe the configure helper without Windows-only script paths")
     if "Do not stop at asking whether guidance is needed" not in skill:
         add_error("SKILL.md workflow must require automatic project configuration, not guidance-only setup")
+    automation_tokens = (
+        "Agent Automation Contract",
+        "list_toolsets",
+        "describe_toolset",
+        "call_tool",
+        "independent read",
+        "dirty-state",
+        "minimal blocker",
+    )
+    for token in automation_tokens:
+        if token not in skill:
+            add_error(f"SKILL.md must encode the agent automation contract: {token}")
+    for stale_phrase in (
+        "Treat restart as a conversation choice",
+        "provide concise manual steps",
+        "Common MCP Issues and Solutions",
+    ):
+        if stale_phrase in skill:
+            add_error(f"SKILL.md still contains guidance-first behavior: {stale_phrase}")
 
     if "npx skills add soatori/unreal-mcp-skills" not in readme:
         add_error("README.md must keep the skills.sh install command")
@@ -84,16 +104,18 @@ def main() -> int:
         if token != "COMMON_TOOLSET_PLUGINS" and token not in policy_text:
             add_error(f"docs must mention common Toolset setup: {token}")
     restart_tokens = (
-        "Post-Configure Save/Restart Dialog",
-        "Should I launch or restart Unreal Editor for this project now",
-        "Do not terminate a running editor process without explicit confirmation",
+        "Restart Automation and Dirty-State Gate",
+        "Immediately before closing",
+        "graceful close",
+        "Do not escalate to force-kill",
+        "do not infer that the editor is clean",
     )
     for token in restart_tokens:
         if token not in policy_text:
             add_error(f"docs must include save/restart dialog guidance: {token}")
-    for token in ("Save the UE project before restart", "restart manually", "explicit confirmation"):
+    for token in ("dirty/unsaved state", "restart the matching editor process automatically", "request only the save/confirmation action"):
         if token not in configure_script:
-            add_error(f"configure helper must print post-configure restart guidance: {token}")
+            add_error(f"configure helper must print post-configure automation guidance: {token}")
     stale_limits = (
         "It" + " does" + " not" + " enable `" + "AllToolsets`",
         "does" + " not" + " enable `" + "AllToolsets`",
@@ -120,6 +142,20 @@ def main() -> int:
         add_error("agents/openai.yaml display_name should be Unreal MCP")
     if "$unreal-mcp" not in openai:
         add_error("agents/openai.yaml default_prompt should mention $unreal-mcp")
+    if "execute the requested editor task" not in openai:
+        add_error("agents/openai.yaml must tell the agent to execute the editor task")
+
+    try:
+        eval_data = json.loads(evals_text)
+        expected_outputs = "\n".join(item.get("expected_output", "") for item in eval_data.get("evals", []))
+        for stale_phrase in ("provide troubleshooting steps", "explain", "suggest"):
+            if stale_phrase in expected_outputs.lower():
+                add_error(f"evals must require execution rather than guidance: {stale_phrase}")
+        for token in ("verify", "minimal blocker", "dirty"):
+            if token not in expected_outputs.lower():
+                add_error(f"evals must cover automation behavior: {token}")
+    except Exception as exc:
+        add_error(f"evals/evals.json is not valid JSON: {exc}")
 
     for file_path in (
         "references/examples/.mcp.json",

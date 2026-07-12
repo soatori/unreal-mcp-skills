@@ -1,7 +1,7 @@
 interface:
   display_name: "Unreal MCP"
   short_description: "Configure and use Unreal MCP safely."
-  default_prompt: "Use $unreal-mcp to configure the UE project if needed, inspect available Unreal toolsets, and perform the requested editor task safely."
+  default_prompt: "Use $unreal-mcp to inspect and configure the UE project, recover the MCP connection, execute the requested editor task, and independently verify the result; request only a minimal blocker when automation cannot continue safely."
 
 # Codex MCP config (.codex/config.toml):
 # [mcp_servers.unreal-mcp]
