@@ -19,7 +19,9 @@ Use one of these forms in an agent session:
 ```text
 $unreal-mcp
 /unreal-mcp
+/ue-mcp
 /unreal-mcp:configure <client>
+/ue-mcp:configure <client>
 ```
 
 ## Agent Automation
