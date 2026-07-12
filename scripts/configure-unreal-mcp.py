@@ -267,9 +267,10 @@ def main() -> int:
     print(f"  ModelContextProtocol.GenerateClientConfig {editor_client_name(args.target)}")
     print()
     print("Post-configure next step:")
-    print("  Save the UE project before restart.")
-    print("  Ask whether to launch/restart the editor now or let the user restart manually.")
-    print("  Do not terminate a running Unreal Editor process without explicit confirmation.")
+    print("  Discover dirty/unsaved state through the live editor schema.")
+    print("  If clean, restart the matching editor process automatically and reconnect.")
+    print("  If dirty or unknown, request only the save/confirmation action that blocks safe restart.")
+    print("  Verify the endpoint, MCP logs, required Toolsets, and original task after restart.")
 
     if args.verify:
         verify_server(server_url, project_root, args.port)

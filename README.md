@@ -2,7 +2,7 @@
 
 # Unreal MCP Skill
 
-Agent guidance for operating Unreal Editor through Epic's official **ModelContextProtocol (MCP)** toolset.
+Agent automation for discovering, configuring, controlling, recovering, and verifying Unreal Editor through Epic's official **ModelContextProtocol (MCP)** toolset.
 
 > Supported version: UE 5.8+
 
@@ -24,16 +24,9 @@ $unreal-mcp
 /ue-mcp:configure codex
 ```
 
-## Quick Start
+## Agent Automation
 
-Use this as an agent skill, not as a command-line setup guide:
-
-1. Invoke `$unreal-mcp`, `/unreal-mcp`, or `/ue-mcp` in the agent session.
-2. Ask for the editor task directly, or use `/unreal-mcp:configure <target>` when the project is not connected yet.
-3. Let the agent inspect `list_toolsets`, choose the needed Toolset domain, call `describe_toolset`, then execute through `call_tool`.
-4. If the needed Toolset is missing, enable the task-required Toolset plugin, refresh tools, reconnect if needed, and verify with `list_toolsets`.
-
-Enable Toolset plugins according to the task. `AllToolsets` is acceptable when broad exploration is explicitly useful, but the agent should still verify the live schemas before calling tools.
+Invoke `$unreal-mcp`, `/unreal-mcp`, or `/ue-mcp` with the editor outcome you want. The skill directs the agent to discover the project and live Toolsets, configure or recover MCP when needed, execute the editor operation, and verify the result. Human input is reserved for an ambiguous target, a protected write, missing authorization, or a dirty-state safety gate that cannot be resolved through available controls.
 
 ## Configure Command
 
@@ -56,7 +49,7 @@ The configure helper is implementation support for the skill command. `Target` s
 
 The default Toolset profile is `common`, which covers the most frequent editor tasks: editor state/logs/viewport/selection, scene/actor/asset/Blueprint/material operations, automation test discovery, and Live Coding. Use `-ToolsetProfile core` for core MCP transport only, or `-ToolsetProfile all` for broad exploration.
 
-After configuration, the agent should prompt for the save/restart choice instead of only telling you to restart manually. Save the UE project first, then choose whether the agent should launch/restart the editor or whether you will reopen the project yourself.
+After configuration, the agent discovers unsaved state. It restarts the matching editor automatically when the editor is proven clean; otherwise it requests only the save or confirmation action required for a safe restart.
 
 ## What This Skill Covers
 
@@ -79,7 +72,7 @@ Run the skill consistency check after editing docs, examples, metadata, or scrip
 python scripts/validate-skill.py
 ```
 
-The configure helper is implementation support for `/unreal-mcp:configure`; prefer invoking the skill command in normal use rather than asking users to run the helper manually.
+The configure helper is implementation support for `/unreal-mcp:configure`; the agent runs it as part of the automation workflow.
 
 Useful local checks:
 

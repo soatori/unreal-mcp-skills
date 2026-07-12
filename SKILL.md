@@ -1,345 +1,187 @@
 ---
 name: unreal-mcp
-description: "Use when controlling or inspecting a running Unreal Editor through MCP, enabling Unreal MCP plugins and server, discovering toolsets via Tool Search, calling MCP editor tools safely, creating or updating UE AgentSkill assets with permission, or debugging MCP connection, tool, and schema issues."
+description: "Use when an agent must inspect, configure, control, recover, or verify Unreal Editor 5.8+ through Epic's official MCP; discover live Toolsets and schemas, execute editor operations, automate server and plugin setup, or manage UE AgentSkill assets with permission."
 ---
 
-# Unreal MCP Skill
+# Unreal MCP Agent Automation
 
-A guidance skill for agents to operate the Unreal Editor through Epic's official ModelContextProtocol (MCP) toolset.
+Operate Unreal Editor through Epic's official `ModelContextProtocol` implementation. The goal is completion of the requested editor task, not instructions for the user to perform it.
 
-> **Supported version:** UE 5.8+ <br/>
-> Learn to use this Experimental feature, but use caution when shipping with it.
+## Agent Automation Contract
 
-## Overview
+For every request:
 
-Use this skill to operate a UE editor through Epic's official Unreal MCP. The Plugin Browser and Epic documentation use the friendly name **Unreal MCP**; the engine source tree, `.uplugin` files, C++ symbols, console commands, and settings use the identifier `ModelContextProtocol`.
+1. Discover the target project and current editor/MCP state.
+2. Use available filesystem, process, port, log, and MCP tools to remove recoverable blockers.
+3. Discover live capabilities with `list_toolsets`, inspect the exact schema with `describe_toolset`, and execute with `call_tool`.
+4. After every mutation, perform an independent read that proves the requested state.
+5. Return the result and verification evidence. Ask the user only for one minimal blocker action when no available control channel can continue safely.
 
-Treat Unreal MCP as a local HTTP/SSE MCP server embedded in the editor process. It synchronizes external tool calls onto the Unreal game thread and executes tool invocations serially, so do not issue overlapping dependent calls.
+Do not replace an available action with setup directions, troubleshooting steps, UI click instructions, or a list of commands for the user. Reporting completed actions, risks, partial failures, and verification evidence is required.
 
-Useful editor operations usually come from `ToolsetRegistry` plus enabled `Experimental/Toolsets/*` plugins. `ModelContextProtocol` itself is primarily the transport, server, settings, and protocol layer.
+Before declaring a blocker, record which applicable filesystem, process, port, log, editor-control, and MCP channels were inspected or attempted and the evidence that each cannot perform the next action. A failed recovery requires a fresh retry or readback; one unsuccessful call is not exhaustion evidence.
 
-Do not infer UE MCP capability from third-party Unreal MCP servers or Jianying/CapCut MCP projects. Those can suggest automation patterns, but official UE behavior must come from Epic docs, local UE source, schemas returned by `describe_toolset`, or live editor evidence.
+## Architecture and Truth Sources
 
-Read `references/mcp-tools.md` when you need concrete setup details, built-in toolset domains, configuration keys, console commands, custom Toolset patterns, runtime limits, or known call-shape pitfalls.
+Unreal MCP has three layers:
 
-Read `references/configure-workflow.md` before handling `/unreal-mcp:configure` or `/ue-mcp:configure`.
+- `ModelContextProtocol`: local HTTP/Streamable HTTP server, sessions, settings, and client configuration.
+- `ToolsetRegistry`: Toolset discovery, JSON schema generation, dispatch, and UE `UAgentSkill` assets.
+- `Experimental/Toolsets/*`: editor, asset, test, Live Coding, UI, Gameplay, PCG, VFX, and other operational capabilities.
 
-Read `references/uasset-read-comparison.md` when using UE MCP as editor-side comparison evidence for `uasset_read` outputs.
+Treat live evidence in this order:
 
-Read `references/find-editor-installations.md` when you need to discover locally installed Unreal Editor versions or record installation paths to memory.
+1. Current `list_toolsets` and `describe_toolset` results.
+2. Current editor state, logs, project files, process state, and tool results.
+3. Local UE source and Epic documentation.
+4. This skill and its references as a capability baseline.
 
-## Skill Activation
+Never invent a documented Toolset or argument when the current session does not expose it. The wrapper expects the full Toolset name in `toolset_name` and the short operation name in `tool_name`.
 
-Use this project skill when the user explicitly invokes `$unreal-mcp`, `/unreal-mcp`, or `/ue-mcp` (alias), asks to control or inspect the currently running UE editor through MCP, asks how to enable Unreal MCP, or asks which UE MCP Toolset should handle an editor task.
+Unreal MCP runs calls serially on the editor game thread. Execute dependent calls serially and wait for PIE, saving, compilation, Live Coding, tests, and editor startup to settle.
 
-`unreal-mcp-skills` is the package/distribution name used by skills.sh. It is not the agent command. Do not instruct users to invoke `/unreal-mcp-skills`.
+## Activation and Commands
 
-### Sub-skill Commands
+Activate for `$unreal-mcp`, `/unreal-mcp`, `/ue-mcp`, or any request to inspect, configure, control, recover, or validate Unreal Editor through MCP. `unreal-mcp-skills` is the distribution name, not an agent command. Do not use `/unreal-mcp-skills` as a command.
 
-| Command | Description |
+| Command | Agent behavior |
 |---|---|
-| `/unreal-mcp:configure <target>` | Automatically configure the current UE project for `claude` / `codex` / `cursor` / `vscode` / `gemini` / `all`. Read `references/configure-workflow.md`, resolve the project root or `.uproject`, run the bundled configure helper with dry-run first, then write core MCP plugins, common Toolset plugins, Auto Start defaults, and target client config unless dry-run exposes a blocking condition. After writing, prompt for save/restart or manual restart. |
-| `/unreal-mcp:execute-blueprint` | Execute a Blueprint function in Unreal Engine |
-| `/unreal-mcp:open-widget` | Open an Editor Utility Widget in Unreal Engine |
-| `/unreal-mcp:find-installations` | Discover locally installed Unreal Engine editor versions and optionally record them to memory |
+| `/unreal-mcp:configure <target>` | Resolve one project, dry-run, configure it, recover/restart if needed, and verify the connection. |
+| `/unreal-mcp:execute-blueprint` | Discover the Blueprint execution capability, execute the requested function, and verify its effect. |
+| `/unreal-mcp:open-widget` | Discover the editor/widget capability, open the requested Editor Utility Widget, and verify it is open. |
+| `/unreal-mcp:find-installations` | Run the bundled discovery script and return verified editor paths and versions. |
 
-All commands also accept the `ue-mcp` prefix, e.g. `/ue-mcp:configure`.
+All commands accept the `ue-mcp` prefix. Claude Code uses project `.mcp.json`; Codex uses project `.codex/config.toml`. Do not create or manage cc-switch links.
 
-### Claude Code
+## Automation State Machine
 
-Claude Code loads this skill from the skills directory. When invoked, follow the workflow and safety rules below. Claude Code connects to the UE MCP server via the `.mcp.json` config generated by `ModelContextProtocol.GenerateClientConfig ClaudeCode`.
+### 1. Resolve the project
 
-### Codex
+Use, in order: an explicit `.uproject`, an explicit project directory, the current workspace, then a unique `.uproject` candidate beneath the workspace. Confirm its resolved absolute path and reject edits outside its project root.
 
-Codex loads this skill from the skills directory. When invoked, follow the workflow and safety rules below. Codex connects to the UE MCP server via the config generated by `ModelContextProtocol.GenerateClientConfig Codex` or by the equivalent local configuration script.
+Ask only when more than one plausible project remains. The minimal blocker is the project path or candidate selection; do not provide setup instructions.
 
-This folder is a runtime-installed skill copy. If a separate source repository is used for publishing, keep the source copy and this installed copy synchronized, but do not infer a source path from this runtime path.
+### 2. Inspect bootstrap state
 
-This skill does not start inside Unreal by itself. Unreal MCP must be enabled in the editor, the MCP server must be running, and the agent must be connected from the project root where the client config was generated.
+Before launching or diagnosing the editor, read:
 
-Keep these activation layers separate:
+- `.uproject`: `ModelContextProtocol`, `ToolsetRegistry`, and task-required Toolset plugins.
+- `Config/DefaultEngine.ini`: Auto Start, port, URL path, and Tool Search settings.
+- Target client config: endpoint and project-local placement.
+- Unreal Editor processes: executable path and project command line when available.
+- Endpoint/port state and available MCP/log evidence.
 
-- Agent skill activation: the external agent loads this file when `$unreal-mcp`, `/unreal-mcp`, or the `/ue-mcp` alias is used.
-- Unreal plugin enablement: UE Editor must have the **Unreal MCP** plugin enabled; source, settings, and commands call it `ModelContextProtocol`.
-- MCP server startup: Auto Start must be enabled or `ModelContextProtocol.StartServer [port]` must run in the editor.
-- Client connection: generate config with `ModelContextProtocol.GenerateClientConfig Codex|ClaudeCode|All`, then launch the agent from the project root that received the config.
-- UE `UAgentSkill` assets: these are ToolsetRegistry-managed Blueprint-backed editor assets. They are not the same thing as this filesystem skill and must not be created or updated without explicit user permission.
+If configuration is missing or inconsistent, read `references/configure-workflow.md`, run the configure helper `scripts/configure-unreal-mcp.py` with `-DryRun`, inspect the proposed paths, then run the write automatically when it stays inside the target project and does not hit a protected file. Automatic project configuration is the default. Do not stop at asking whether guidance is needed.
 
-## Workflow
+Codex TOML is write-once: if `.codex/config.toml` exists and must change, stop before any configure write and request permission for that one protected edit. Do not delete or overwrite it implicitly.
 
-1. Confirm Unreal MCP tools are exposed in the current agent session.
-2. If no Unreal MCP tools are exposed and the user asks for setup, read `references/configure-workflow.md` and execute the configure workflow. Do not stop at asking whether guidance is needed. Resolve a UE project root or `.uproject`, run dry-run, then perform the write unless the project path is ambiguous, Codex TOML write-once protection blocks the run, or dry-run shows an unexpected edit. Only fall back to manual instructions when the helper cannot safely modify the project. After writing, run the post-configure save/restart dialog below instead of ending with a bare manual restart instruction.
-3. Prefer Tool Search mode. Call `list_toolsets`, choose the capability domain, call `describe_toolset` for the exact Toolset, then call the desired tool through `call_tool`.
-4. In this MCP wrapper, pass the full Toolset name as `toolset_name` and the short tool name as `tool_name`. For example, use `toolset_name: "editor_toolset.toolsets.scene.SceneTools"` and `tool_name: "get_current_level"`, not the fully qualified tool name.
-5. Do not assume a documented Toolset is enabled. Use the current `list_toolsets` result as truth, then inspect schemas with `describe_toolset` before forming arguments.
-6. Before any scene, asset, config, plugin, file, PIE, compile, save, or AgentSkill mutation, state the expected effect and use read-only inspection tools first when available.
-7. Execute dependent tool calls serially. Wait for asynchronous results, saving, compiling, Live Coding, PIE, and automation test state before starting the next dependent action.
-8. After a mutating call, verify with a separate read/query action.
+### 3. Connect and discover
 
-## Choosing Toolsets
+When MCP tools are exposed:
 
-Only the live `list_toolsets` result is authoritative. Common baseline toolsets:
+1. Call `list_toolsets`.
+2. Select the smallest Toolset domain that can fulfill the task.
+3. Call `describe_toolset` using the exact live name.
+4. Form arguments from that schema.
+5. Perform a read-only preflight when the operation mutates state.
+6. Call the operation through `call_tool`.
+7. Use a separate read/query operation to verify the effect.
 
-- **Editor state, viewport, selection, camera, PIE, screenshots, Content Browser:** `EditorToolset.EditorAppToolset`
-- **Scene, actor, component, asset, material, Blueprint, mesh, texture:** corresponding `editor_toolset.toolsets.*` discovered at runtime
-- **Logs and diagnostics:** `EditorToolset.LogsToolset` (pass `category: ""` for all)
-- **Test discovery or validation:** `AutomationTestToolset.AutomationTestToolset`
-- **C++ iteration:** `LiveCodingToolset.LiveCodingToolset`
-- **UE AgentSkill management:** `ToolsetRegistry.AgentSkillToolset` (create/update requires permission)
+When MCP tools are not exposed, or `list_toolsets` returns an empty/unusable registry, do not immediately return instructions. Treat discovery as failed, enter connection recovery, and retry discovery after recovery.
 
-For the full toolset map including optional plugins (PCG, GAS, Niagara, UMG, MVVM, etc.), see the "Built-In Toolset Map" section in `references/mcp-tools.md`.
+### 4. Recover the connection
 
-Optional toolset plugins under `Engine/Plugins/Experimental/Toolsets/*` add MCP-visible domains. Enable the Toolset plugins needed for the current task, or use `AllToolsets` when broad discovery/prototyping is explicitly useful and the user accepts the startup/schema-noise tradeoff.
+Use available controls in this order:
 
-The configure workflow enables the `common` Toolset profile by default: `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset` in addition to `ModelContextProtocol` and `ToolsetRegistry`. Use `-ToolsetProfile core` only when the project should receive transport/discovery plugins without common editor automation Toolsets. Use `-ToolsetProfile all` only for broad discovery/prototyping.
+1. Verify project plugins/settings/client config and correct them through the configure workflow when safe.
+2. Check the configured loopback endpoint and Unreal Editor process.
+3. If the editor is not running, discover the matching installation, launch it with the `.uproject`, wait, and retry the MCP connection.
+4. If an editor control channel exists, run `ModelContextProtocol.StartServer [port]` or use Auto Start, then retry.
+5. Inspect `LogModelContextProtocol`, `LogToolsetRegistry`, `LogPython`, Blueprint compiler, and target Toolset logs through MCP or another available log channel.
+6. Run `ModelContextProtocol.RefreshTools`, reconnect, and retry `list_toolsets` when registration is stale.
+7. If RefreshTools is insufficient, stop/start the server; use restart automation when plugin loading or new `UFUNCTION` registration requires an editor restart.
 
-## Post-Configure Save/Restart Dialog
+HTTP telemetry errors involving `datarouter.ol.epicgames.com` do not by themselves prove MCP failure. Unreal MCP is loopback-only, has no authentication layer, and must not be exposed beyond the local machine.
 
-After the configure workflow writes `.uproject` plugin entries, Toolset profile changes, `Config/DefaultEngine.ini`, or client config, do not repeatedly finish with only "restart manually." Treat restart as a conversation choice:
+### 5. Enable missing capabilities
 
-1. Tell the user which project files were changed and that UE may need a restart for plugin/toolset changes to load.
-2. Prompt the user to save the project before restart. If MCP is already connected, inspect dirty assets first and save only with explicit permission. If MCP is not connected, ask the user to save in the editor manually before continuing.
-3. Ask whether the agent should launch/restart the editor for this project now.
-4. If the user confirms agent restart/launch, use the known editor path or run the editor installation discovery workflow first. Never terminate a running Unreal Editor process without explicit confirmation.
-5. If the user declines, provide concise manual steps: save project, close and reopen the UE project, start from the project root, then call `list_toolsets`.
-6. If the user wants to continue without restart, state that newly enabled plugins or Toolsets may not appear until restart and continue only with currently available tools.
+Only the live registry proves that a Toolset is usable. Route common tasks as follows, then confirm the exact live name/schema:
 
-## Typical Tool Calls
+| Goal | Capability baseline |
+|---|---|
+| Editor state, scene, actors, assets, materials, Blueprints, logs | `EditorToolset` |
+| Automation tests | `AutomationTestToolset` |
+| C++ iteration and compile state | `LiveCodingToolset` |
+| Plugin discovery/state | `PluginToolset` |
+| Project/editor settings | `ConfigSettingsToolset` |
+| Slate/UMG/MVVM | `SlateInspectorToolset`, `UMGToolSet`, `MVVMToolset` |
+| GAS, tags, Game Features, StateTree, AI | corresponding Gameplay Toolset |
+| PCG, Niagara, Dataflow, physics, animation | corresponding content Toolset |
+| UE AgentSkill inspection | `ToolsetRegistry.AgentSkillToolset` |
 
-- Connection check: call `list_toolsets`.
-- Schema discovery: call `describe_toolset` with the exact Toolset name from `list_toolsets`.
-- Current level read: call `editor_toolset.toolsets.scene.SceneTools` with short tool name `get_current_level`.
-- Scene/Actor inspection: use `SceneTools.find_actors`, then `ActorTools.get_label`, `get_actor_transform`, `get_components`, or `get_actor_bounds`.
-- Blueprint comparison: use `BlueprintTools.list_graphs`, `get_graph`, `list_variables`, `list_events`, `get_parent`, and read-only graph/object tools before any Blueprint mutation.
-- Blueprint logic read: prefer `get_graph` to obtain the graph refPath, then try `read_graph_dsl`; if it returns an empty string or rejects the graph path, use `find_nodes` with `title: ""`, then `get_node_infos` for pins/connections or `get_connected_subgraph` from a specific event/input node.
-- Editor context: use `EditorAppToolset.GetContentBrowserPath`, `GetOpenAssets`, `GetSelectedActors`, `GetSelectedAssets`, `GetCameraTransform`, or `IsPIERunning`.
-- Logs and diagnostics: use `LogsToolset.GetLogEntries` with `category: ""` and a narrow `pattern`.
-- Automation tests: call `DiscoverTests`, then `ListTests`; run tests only when the user asks for test execution.
-- AgentSkill assets: call `ListSkills` and `GetSkills` freely; call `CreateSkill` or `UpdateSkill` only after explicit permission.
+If the required Toolset is absent:
 
-## Finding Local Editor Installations
+1. Identify the providing plugin from live plugin metadata, local UE source, or the Toolset reference; do not infer it from a similar name alone.
+2. Check whether that plugin is enabled through live `PluginToolset` state when available, otherwise through `.uproject`.
+3. Enable only the task-required plugin through the live plugin operation when its schema supports the change, otherwise use the configure helper/project file path.
+4. Make one evidenced dynamic-load/RefreshTools/reconnect attempt when supported.
+5. Repeat `list_toolsets` and `describe_toolset` and retain the failure evidence if still absent.
+6. Restart only after the dynamic attempt proves insufficient or the plugin/reflected API is known to require restart.
 
-When the user asks to find installed Unreal Editor versions, use the `scripts/find-ue-installations.py` script to discover all local UE installations.
+The default configure profile is `common`: core MCP plus `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset`. Use `core` only for transport/discovery-only projects. Use `all` only when broad discovery is part of the request; otherwise prefer task-specific plugins.
 
-### Discovery workflow
+## Restart Automation and Dirty-State Gate
 
-1. Run the discovery script:
-   ```bash
-   python scripts/find-ue-installations.py
-   ```
+Restart is an automated recovery action when it is safe, not a default conversation choice.
 
-2. The script searches three sources:
-   - Epic Games Launcher manifest (most reliable)
-   - Windows registry entries
-   - Common default installation paths
+1. Discover a read-only dirty package/asset or unsaved-change capability from the live Toolset schemas. Do not hard-code a tool name that has not been discovered. The query must cover all dirty packages/assets and the current map in the target editor; a narrower query cannot prove restart safety.
+2. Resolve and uniquely match the editor executable, process, and project before the final safety check. Combine any missing process/project identification with the same restart blocker request; allow at most one blocker request per restart attempt.
+3. Immediately before closing, quiesce new mutations and repeat the full dirty-state query. If it proves no unsaved state, request a graceful close of only that editor process, wait for normal exit, relaunch it, wait for readiness, reconnect, inspect MCP logs, run `list_toolsets`, and resume the original task. Do not escalate to force-kill if graceful close times out or presents a save dialog.
+4. If dirty assets/packages exist, request permission to save/discard them or ask the user to perform only that action and confirm the editor is safe to restart. Continue automatically after the response.
+5. If MCP is disconnected and the bounded filesystem, process, port, log, and editor-control checks cannot reliably establish dirty-state, do not infer that the editor is clean. Issue the single restart blocker from step 2, asking the user to save/discard outstanding changes and confirm restart safety.
+6. Never terminate unrelated Unreal Editor processes.
 
-3. Output includes for each installation:
-   - `path`: Full installation directory
-   - `editor_exe`: Path to UnrealEditor.exe
-   - `version`: Detected version (e.g., "5.4.0")
-   - `source`: How it was discovered
+After restart, verification is incomplete until the endpoint responds, relevant MCP logs show startup, required Toolsets appear, their schemas load, and the original operation can resume or its prior result can be read back.
 
-### Recording to memory
+## Mutation and Verification Rules
 
-After discovering installations, record them to memory for future sessions:
-
-```python
-# Store in memory for later use
-memory_data = {
-    "ue_installations": script_output["installations"],
-    "discovered_at": timestamp,
-    "system": "windows"
-}
-```
-
-This is useful when:
-- The user wants to remember which UE versions are available
-- Automation scripts need to find the correct editor path
-- Troubleshooting version compatibility issues
-
-### Using discovered paths
-
-Once recorded, the paths can be used to:
-- Launch the editor with a project: `"path/to/UnrealEditor.exe" "project.uproject"`
-- Verify the correct version is installed for a project
-- Configure CI/CD pipelines with the correct editor path
-
-Read `references/find-editor-installations.md` for detailed troubleshooting and additional usage patterns.
-
-## Pre-Launch Editor Check
-
-Before launching the Unreal Editor for any project, always verify that the MCP plugin is configured. This prevents connection failures and ensures the agent can communicate with the editor.
-
-### Check workflow
-
-1. **Locate the .uproject file** in the target project directory
-2. **Read the .uproject JSON** and check the `Plugins` array for `ModelContextProtocol` and `ToolsetRegistry`
-3. **If plugins or client config are missing**, run the configure workflow to add them:
-   ```bash
-   python scripts/configure-unreal-mcp.py -ProjectPath "path/to/project" -Target codex -DryRun
-   python scripts/configure-unreal-mcp.py -ProjectPath "path/to/project" -Target codex
-   ```
-4. **If plugins are present**, verify they are enabled (set to `true`) and client config points at `http://127.0.0.1:8000/mcp`
-5. **Then launch the editor** with the project
-
-### Why this matters
-
-- Unreal MCP requires both `ModelContextProtocol` and `ToolsetRegistry` plugins to be enabled
-- Without these plugins, the MCP server cannot start and the agent cannot connect
-- The configure script safely adds core MCP plugins and the common Toolset profile without overwriting existing configuration
-- This check prevents wasted time debugging connection issues after editor launch
-
-### Example flow
-
-```
-User: "Open my project in Unreal"
-Agent:
-1. Find project .uproject file
-2. Check plugins array in .uproject
-3. If missing → run configure workflow dry-run, then real write
-4. Launch editor: "UnrealEditor.exe" "project.uproject"
-5. Wait for editor to start
-6. Connect via MCP and verify with list_toolsets
-```
-
-### Safety note
-
-The configure workflow must dry-run first, then write project files when the requested task is to configure or open an MCP-enabled project. It modifies the `.uproject`, `Config/DefaultEngine.ini`, and target client config; tell the user which files will change before writing.
-
-## Common MCP Issues and Solutions
-
-Based on analysis of Claude Code history, these are the most frequent MCP-specific problems agents encounter.
-
-### 1. Connection Issues
-
-**Symptom**: Agent cannot connect to MCP server, `list_toolsets` returns nothing or times out.
-
-**Solutions**:
-- Run `ModelContextProtocol.StartServer [port]` in editor console
-- Verify port (default 8000) matches in config and editor settings
-- Generate config: `ModelContextProtocol.GenerateClientConfig ClaudeCode`
-- Ensure agent launched from project root where config was generated
-- Check firewall allows localhost:8000 (MCP only binds to loopback)
-
-### 2. Plugin Issues
-
-**Symptom**: `ModelContextProtocol` or `ToolsetRegistry` not in plugin list, tools not appearing.
-
-**Solutions**:
-- Enable in Edit > Plugins, search "Unreal MCP" or "ModelContextProtocol"
-- Add to .uproject if missing:
-  ```json
-  {"Name": "ModelContextProtocol", "Enabled": true},
-  {"Name": "ToolsetRegistry", "Enabled": true}
-  ```
-- Enable specific toolset plugins under Engine > Plugins > Experimental > Toolsets
-
-### 3. Toolset Discovery Problems
-
-**Symptom**: `list_toolsets` returns empty or incomplete list, specific toolsets missing.
-
-**Solutions**:
-- Run `ModelContextProtocol.RefreshTools` after enabling plugins
-- Disconnect and reconnect client after refresh
-- Restart editor if hot reload doesn't work
-- Activate game features that provide toolsets
-
-### 4. Blueprint Graph MCP Issues
-
-**Symptom**: `read_graph_dsl` returns empty, `find_nodes` fails, graph operations error.
-
-**Solutions**:
-- Empty Graph DSL is normal for some graphs; use `find_nodes` with `title: ""` as fallback
-- Get exact graph refPath from `list_graphs` first
-- Pass UObject references as `{"refPath": "/Game/...Asset.Asset:EventGraph"}`, not bare string
-- Compile Blueprint in editor before reading
-
-### 5. Save/Compile During MCP Operations
-
-**Symptom**: Save operations fail, changes not persisted after MCP edits.
-
-**Solutions**:
-- Stop Play-in-Editor before save/compile operations
-- Save assets before compiling, compile before saving project
-- Use `ModelContextProtocol.StopServer` then `StartServer` if registry is stale
-
-## MCP Debugging Workflow
-
-When encountering MCP issues, follow this systematic approach:
-
-1. **Check connection**: Call `list_toolsets` - if fails, connection issue
-2. **Check plugins**: Verify `ModelContextProtocol` and `ToolsetRegistry` enabled
-3. **Check server**: Run `ModelContextProtocol.StartServer [port]` if not running
-4. **Check config**: Generate client config with `ModelContextProtocol.GenerateClientConfig`
-5. **Check logs**: Use `LogModelContextProtocol` category in Output Log
-6. **Refresh tools**: Run `ModelContextProtocol.RefreshTools` after changes
-7. **Clean restart**: Stop and start server for fresh registry rebuild
-8. **Check PIE**: Stop Play-in-Editor if experiencing issues
+- User requests for an editor outcome authorize normal, scoped configuration and editor operations needed to produce that outcome.
+- Inspect current state before scene, asset, graph, plugin, config, PIE, save, compile, test, file, or AgentSkill mutation.
+- State the expected effect briefly before a mutation when the user is observing the session; do not turn this notice into a tutorial or confirmation gate.
+- Stop PIE before editor-only operations when the live schema/state requires it.
+- Treat property and object writes as non-transactional unless the live schema proves otherwise. Split multi-object changes, verify each write, and stop dependent writes on the first failure.
+- For bulk or destructive changes, require an explicit recovery point or authorization appropriate to the risk.
+- `ListSkills` and `GetSkills` are read-only. `CreateSkill` and `UpdateSkill` write Blueprint-backed assets and always require explicit user permission.
+- Run Automation Tests only when test execution is part of the requested task or required verification; wait for completion and read the final result.
+
+The completion report contains: actions performed, verified resulting state, unresolved risks/partial changes, and any minimal blocker. It does not contain steps the user could have taken instead.
 
 ## Blueprint EventGraph Reading
 
-Use this read-only playbook when the user asks to inspect Blueprint logic or compare a `.uasset` parser result against the live editor:
+For Blueprint inspection:
 
-For `uasset_read` parser-output comparisons, read `references/uasset-read-comparison.md` first and keep MCP editor semantics separate from binary parser acceptance.
+1. Discover `BlueprintTools` and inspect its live schema.
+2. Call `list_graphs`, then `get_graph`, preserving the returned graph `refPath`.
+3. Call `read_graph_dsl` with the exact graph reference.
+4. If it is empty or rejects the path, call `find_nodes` with `title: ""`, then `get_node_infos` for pins/connections.
+5. Use `get_connected_subgraph` from a relevant event/input node for a focused execution chain.
+6. Report execution and data flow separately.
 
-1. Call `BlueprintTools.list_graphs` for the Blueprint asset path.
-2. Call `BlueprintTools.get_graph` for the target graph, usually `EventGraph`, and keep the returned graph refPath.
-3. Try `BlueprintTools.read_graph_dsl` with that exact graph refPath.
-4. If `read_graph_dsl` returns `""` or rejects the path, call `BlueprintTools.find_nodes` with `title: ""` on the same graph.
-5. Pass all returned node refs to `BlueprintTools.get_node_infos` to read node titles, pin names, pin directions, pin categories, positions, and `connected_pins`.
-6. For a specific execution chain, call `BlueprintTools.get_connected_subgraph` from an event or Enhanced Input node ref.
-7. Summarize both execution flow and data flow. Execution pins show ordering; value pins show parameters such as axis values, action values, targets, booleans, and object refs.
+An empty DSL is not evidence of an empty graph. When the live schema marks an input as a UObject reference, pass `{ "refPath": "/Game/..." }`, not a bare string.
 
-Do not treat an empty Graph DSL result as proof that the graph is empty. Node and pin inspection is the reliable fallback.
+Read `references/uasset-read-comparison.md` for parser comparisons. MCP is editor-visible semantic evidence, not proof of raw `.uasset` serialization fidelity.
 
-When the live schema marks `blueprint`, `graph`, `node`, or class/object inputs as UObject references, pass an object with `refPath`, for example `{ "refPath": "/Game/...Asset.Asset:EventGraph" }`, rather than a bare string.
+## Runtime Boundaries
 
-## Safety Rules
+- UE 5.8 MCP is experimental; schemas and return shapes may change.
+- Editor Toolset discovery is editor-only. Cooked builds must register runtime tools through `IModelContextProtocolModule::AddTool()` and advertise them eagerly.
+- Tool Search meta-tools are editor-only.
+- Adding a new reflected `UFUNCTION` requires an editor restart; Live Coding alone is insufficient.
+- Refresh tools after Python/C++ Toolset registration, hot reload, or Game Feature activation.
 
-- Treat MCP and Toolset APIs as experimental. APIs, schemas, return shapes, and data formats can change.
-- Keep Unreal MCP local. It supports HTTP and Server-Sent Events only, binds to loopback by default, has no authentication layer, rejects non-loopback origins, and is not safe to expose beyond the local machine.
-- Never create or update UE `UAgentSkill` assets without clear user authorization. `CreateSkill` and `UpdateSkill` write Blueprint-backed editor assets.
-- Prefer enabling the Toolset plugins needed for the task. If `AllToolsets` is already enabled or explicitly chosen for exploration, treat the larger tool surface as schema noise and continue to rely on `list_toolsets` and `describe_toolset` before calls.
-- If a tool is missing after enabling, hot reload, or Game Feature activation, run `ModelContextProtocol.RefreshTools`; if schemas remain stale, reconnect the client.
-- When project-specific conventions matter, use `AgentSkillToolset.ListSkills` and `AgentSkillToolset.GetSkills` before acting.
-- Before save, compile, plugin, config, PIE, test, asset, or graph operations, inspect current state with the corresponding read-only Toolset operation when available.
+## References
 
-- Mind PIE. Editor-only tools (asset creation in particular) behave differently while Play-in-Editor is active. If a result looks wrong, check whether PIE is running and stop it if so.
-
-- Save first, then save again. Tell the user to save the project before any bulk change, and again after. MCP edits are not always undoable, especially across compilation boundaries. Treat anything that touches multiple assets as a destructive operation that needs a recovery point.
-
-- If the tool registry is in a bad state and you want a clean restart, run `ModelContextProtocol.StopServer` followed by `ModelContextProtocol.StartServer [port]`.
-
-Risk levels:
-
-- Read-only: `list_toolsets`, `describe_toolset`, `get_current_level`, `list_graphs`, `get_graph`, `read_graph_dsl`, `find_nodes`, `get_node_infos`, `get_connected_subgraph`, `GetLogEntries`, `GetSelectedAssets`, `GetOpenAssets`, `ListSkills`, and `GetSkills`.
-- State-inspection with editor context: selection, camera, viewport, Content Browser path, open asset, and PIE status reads.
-- Mutating: create, move, delete, save, compile, import, set transform, set selection, set camera, run PIE, run tests, Live Coding compile, plugin/config edits, Blueprint graph edits, and AgentSkill create/update.
-
-## Debugging
-
-When connection or tool discovery fails, check in this order:
-
-1. **Plugins**: Unreal MCP (`ModelContextProtocol`), `ToolsetRegistry`, and the target Toolset plugin are enabled.
-2. **Server**: Auto Start is enabled or `ModelContextProtocol.StartServer [port]` was run. The default endpoint is `http://127.0.0.1:8000/mcp`.
-3. **Client config**: `ModelContextProtocol.GenerateClientConfig Codex|ClaudeCode|All` wrote config under the project/workspace root, and the agent was launched from that root.
-4. **Logs**: Use Output Log, `LogModelContextProtocol`, or `EditorToolset.LogsToolset.GetLogEntries` with `category: ""`.
-5. **Refresh**: Run `ModelContextProtocol.RefreshTools` after new Toolsets, hot reloads, or Game Feature activation.
-6. **Clean restart**: If tools are missing or schemas look stale after RefreshTools, run `ModelContextProtocol.StopServer` then `ModelContextProtocol.StartServer [port]` for a clean registry rebuild. Reconnect the client afterward.
-7. **Inspector**: Use MCP Inspector with Streamable HTTP against `/mcp` to list tools and inspect schemas outside the agent.
-
-Classify logs before diagnosing:
-
-- `LogModelContextProtocol` is the primary MCP server and tool discovery signal.
-- `LogToolsetRegistry`, `LogPython`, Blueprint compiler, and target Toolset categories explain schema, Python, or domain tool failures.
-- `LogHttp` requests to `datarouter.ol.epicgames.com` are usually Epic telemetry upload issues. They can be noisy, but they do not by themselves prove Unreal MCP failure.
-
-## Runtime and Cooked Builds
-
-`ModelContextProtocol` and `ModelContextProtocolEngine` can host a server outside the editor, including cooked and shipping builds when started through code. The Toolset Registry adapter is editor-only — toolsets discovered through `ToolsetRegistry` are not auto-discovered in cooked builds. Register runtime tools explicitly through `IModelContextProtocolModule::AddTool()`.
-
-Tool Search meta-tools are also editor-only. Cooked-build direct registrations advertise tools eagerly.
-
-## Project Boundary
-
-For `uasset_read`, UE MCP is useful as an editor-visible semantic oracle for Blueprint graphs, variables, parent classes, logs, automation tests, selected/open assets, and scene state. It does not prove raw `.uasset` binary serialization fidelity. Keep parser acceptance tied to real sample outputs and tests, and use UE MCP as supporting comparison evidence.
+- `references/configure-workflow.md`: automatic project/client configuration and restart recovery.
+- `references/mcp-tools.md`: detailed Toolset map, schemas, console commands, and implementation limits.
+- `references/find-editor-installations.md`: installation discovery used by launch/restart automation.
+- `references/uasset-read-comparison.md`: editor-side comparison workflow for `uasset_read`.

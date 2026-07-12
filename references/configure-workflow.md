@@ -2,7 +2,7 @@
 
 Use this reference when handling `/unreal-mcp:configure <target>` or `/ue-mcp:configure <target>`.
 
-The configure command is an automatic project setup workflow. Do not merely ask whether the user wants guidance. If a UE project root or `.uproject` can be inferred from the current workspace or the user's request, run the dry-run, report the planned files, then run the real configuration unless a blocker appears.
+The configure command is an automatic project setup workflow. Resolve, inspect, dry-run, write, recover the editor connection, and verify. Do not merely ask whether the user wants guidance, and do not substitute instructions for any step the agent can execute.
 
 ## Command
 
@@ -51,20 +51,20 @@ The target client does not limit project setup. For example, `-Target codex` sti
 2. Run dry-run first and summarize the exact files to be changed.
 3. Run the real configure command automatically when the user requested `/unreal-mcp:configure`, opening an MCP-enabled project, or fixing a missing MCP connection.
 4. Stop instead of writing when dry-run reveals an ambiguous project, an existing Codex config for a Codex target, or edits outside the intended project root.
-5. After writing, run the save/restart dialog below instead of ending with a one-line manual restart instruction. Verify through `list_toolsets` once the MCP server is reachable.
+5. After writing, use the dirty-state restart gate below and verify through `list_toolsets` once the MCP server is reachable.
 
-## Save/Restart Dialog
+## Automated Save/Restart Gate
 
 Configuration commonly changes `.uproject` plugin entries, Toolset plugin entries, and `Config/DefaultEngine.ini`. Unreal may not load those changes until the project is reopened.
 
 After a successful write:
 
-1. Summarize the changed files.
-2. Tell the user to save the project before any restart. If MCP is already connected, inspect dirty assets and save only after explicit permission. If MCP is not connected, ask the user to save manually in the editor.
-3. Ask: "Should I launch or restart Unreal Editor for this project now, or would you prefer to restart it manually?"
-4. If the user chooses agent launch/restart, confirm the editor executable and project path. Use `references/find-editor-installations.md` when the editor path is unknown. Do not terminate a running editor process without explicit confirmation.
-5. If the user chooses manual restart, provide exact manual steps: save, close/reopen the project, start the agent from the project root, then call `list_toolsets`.
-6. If the user chooses to continue without restart, continue only with already available Toolsets and note that newly enabled plugins may not appear until restart.
+1. Record the changed files and determine whether plugin loading or reflected API changes require restart.
+2. Discover a read-only dirty/unsaved-state operation from the live Toolset schema. Require coverage of all dirty packages/assets and the current map; do not assume a fixed tool name.
+3. Match the editor process to the project, then immediately recheck full dirty state before a graceful close. If clean, restart automatically, wait for readiness, and reconnect; never escalate a close timeout to force-kill.
+4. If unsaved state exists, request save/discard permission or ask for only that action and confirmation that restart is safe, then continue automatically.
+5. If bounded filesystem, process, port, log, and editor-control checks cannot prove dirty-state, issue one minimal blocker for the entire restart attempt. Never infer a clean editor.
+6. After launch/restart, verify the endpoint, `LogModelContextProtocol`, `list_toolsets`, the required schema, and the original requested operation.
 
 After the core connection is configured, enable Toolset plugins according to the task. `AllToolsets` is acceptable for broad exploration or prototyping when the user accepts the larger startup and schema surface; otherwise enable the specific domain Toolsets needed and verify them with `list_toolsets`.
 
@@ -72,22 +72,15 @@ After the core connection is configured, enable Toolset plugins according to the
 
 Codex TOML generation is write-once. If `.codex/config.toml` exists for a Codex target, stop before any write and ask the user whether to edit or delete it. Do not overwrite it automatically.
 
-## Editor Fallback
+## Recovery When No Editor Control Channel Exists
 
-If project defaults are ignored by a specific engine build, use the editor UI:
-
-1. Enable **Unreal MCP** in Edit > Plugins.
-2. Open Editor Preferences > General > Model Context Protocol.
-3. Enable Auto Start Server.
-4. Set port `8000` and URL path `/mcp`.
-5. Run `ModelContextProtocol.GenerateClientConfig <Client|All>` from the editor console.
-6. Start the agent from the project root and call `list_toolsets`.
+If project defaults are ignored, first use any available editor, UI automation, console, process, or configuration control channel to enable Unreal MCP, set Auto Start/endpoint values, generate client config, and retry `list_toolsets`. If none exists, request only the single editor action that unblocks the next automated step; do not emit a complete manual setup tutorial.
 
 ## Verification
 
 After configuration:
 
-1. Launch/restart the UE editor only after the save/restart dialog above, or have the user restart manually.
+1. Launch/restart through the dirty-state gate above.
 2. Confirm Output Log includes `LogModelContextProtocol` startup messages.
 3. Start the agent from the project root where config was written.
 4. Call `list_toolsets`.

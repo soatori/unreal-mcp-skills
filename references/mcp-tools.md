@@ -25,7 +25,7 @@ The friendly plugin name is **Unreal MCP**. Engine identifiers, console commands
 
 ## Setup And Configuration
 
-For `/unreal-mcp:configure` and `/ue-mcp:configure`, use `references/configure-workflow.md` and the script-backed workflow first. The manual steps below are the fallback and detailed reference.
+For `/unreal-mcp:configure` and `/ue-mcp:configure`, use `references/configure-workflow.md` and the script-backed workflow first. The setup details below are reference data for agent automation; they are not a user-facing fallback procedure.
 
 | Item | Default or command | Notes |
 |---|---|---|
