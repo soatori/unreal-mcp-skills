@@ -24,7 +24,7 @@ $unreal-mcp
 
 ## Agent Automation
 
-Invoke `$unreal-mcp` or `/unreal-mcp` with the editor outcome you want. The skill directs the agent to discover the project and live Toolsets, configure or recover MCP when needed, execute the editor operation, and verify the result. Human input is reserved for an ambiguous target, a protected write, missing authorization, or a dirty-state safety gate that cannot be resolved through available controls.
+Invoke `$unreal-mcp` with the editor outcome you want. The skill directs the agent to discover the project and live Toolsets, configure or recover MCP when needed, execute the editor operation, and verify the result. Human input is reserved for an ambiguous target, a protected write, missing authorization, or a dirty-state safety gate that cannot be resolved through available controls.
 
 ## Configure Command
 
