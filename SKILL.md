@@ -1,6 +1,6 @@
 ---
 name: unreal-mcp
-description: "Use when an agent must inspect, configure, control, recover, or verify Unreal Editor 5.8+ through Epic's official MCP; discover live Toolsets and schemas, execute editor operations, automate server and plugin setup, or manage UE AgentSkill assets with permission."
+description: Use when a task targets Unreal Editor 5.8+ through Epic's official MCP, or when its MCP connection, Toolsets, schemas, plugins, or editor state are unavailable, stale, or incomplete.
 ---
 
 # Unreal MCP Agent Automation
@@ -66,14 +66,16 @@ Ask only when more than one plausible project remains. The minimal blocker is th
 Before launching or diagnosing the editor, read:
 
 - `.uproject`: `ModelContextProtocol`, `ToolsetRegistry`, and task-required Toolset plugins.
-- `Config/DefaultEngine.ini`: Auto Start, port, URL path, and Tool Search settings.
+- `Config/DefaultEditorPerProjectUserSettings.ini`, section `/Script/ModelContextProtocolEngine.ModelContextProtocolSettings`: Auto Start, port, `ServerUrlPath`, and Tool Search settings.
 - Target client config: endpoint and project-local placement.
 - Unreal Editor processes: executable path and project command line when available.
 - Endpoint/port state and available MCP/log evidence.
 
 If configuration is missing or inconsistent, read `references/configure-workflow.md`, run the configure helper `scripts/configure-unreal-mcp.py` with `-DryRun`, inspect the proposed paths, then run the write automatically when it stays inside the target project and does not hit a protected file. Automatic project configuration is the default. Do not stop at asking whether guidance is needed.
 
-Codex TOML is write-once: if `.codex/config.toml` exists and must change, stop before any configure write and request permission for that one protected edit. Do not delete or overwrite it implicitly.
+Shared defaults never overwrite an existing `Saved/Config/*Editor/EditorPerProjectUserSettings.ini`; do not mutate that user file automatically. Recover the current session through live `ConfigSettingsToolset`, an available editor-control or console channel, `ModelContextProtocol.StartServer`, or launch flags, then independently verify the effective state.
+
+Codex TOML is write-once: an existing `.codex/config.toml` is one protected-configuration authorization blocker. Do not delete or overwrite it implicitly.
 
 ### 3. Connect and discover
 
@@ -87,7 +89,7 @@ When MCP tools are exposed:
 6. Call the operation through `call_tool`.
 7. Use a separate read/query operation to verify the effect.
 
-When MCP tools are not exposed, or `list_toolsets` returns an empty/unusable registry, do not immediately return instructions. Treat discovery as failed, enter connection recovery, and retry discovery after recovery.
+If `list_toolsets` is absent but native Toolset operations or schemas are exposed, classify the session as Tool Search disabled/eager mode rather than disconnected. Prefer restoring `bEnableToolSearch=True`; when that cannot be changed safely, use the live native schemas to complete the task and independently verify the result. When neither Tool Search nor native schemas are exposed, enter connection recovery and retry discovery rather than returning instructions.
 
 ### 4. Recover the connection
 
@@ -96,7 +98,7 @@ Use available controls in this order:
 1. Verify project plugins/settings/client config and correct them through the configure workflow when safe.
 2. Check the configured loopback endpoint and Unreal Editor process.
 3. If the editor is not running, discover the matching installation, launch it with the `.uproject`, wait, and retry the MCP connection.
-4. If an editor control channel exists, run `ModelContextProtocol.StartServer [port]` or use Auto Start, then retry.
+4. Recover the current session through live `ConfigSettingsToolset`, an available editor-control or console channel, `ModelContextProtocol.StartServer [port]`, or launch flags, then independently verify the effective state and retry.
 5. Inspect `LogModelContextProtocol`, `LogToolsetRegistry`, `LogPython`, Blueprint compiler, and target Toolset logs through MCP or another available log channel.
 6. Run `ModelContextProtocol.RefreshTools`, reconnect, and retry `list_toolsets` when registration is stale.
 7. If RefreshTools is insufficient, stop/start the server; use restart automation when plugin loading or new `UFUNCTION` registration requires an editor restart.
