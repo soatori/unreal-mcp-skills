@@ -8,8 +8,13 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Iterator
+from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +27,36 @@ def load_configure_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@contextmanager
+def mock_mcp_server(status: int, body: bytes, content_type: str = "application/json") -> Iterator[tuple[str, dict[str, object]]]:
+    received: dict[str, object] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802 - HTTP handler convention
+            received["method"] = self.command
+            received["path"] = self.path
+            received["headers"] = dict(self.headers.items())
+            received["body"] = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/mcp", received
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 class ConfigureUnrealMcpTests(unittest.TestCase):
@@ -164,6 +199,171 @@ class ConfigureUnrealMcpTests(unittest.TestCase):
             self.assertFalse((project_root / ".cursor").exists())
             self.assertFalse((project_root / ".vscode").exists())
             self.assertFalse((project_root / ".gemini").exists())
+
+    def test_verify_posts_initialize_request_with_required_headers_and_accepts_direct_json(self) -> None:
+        response = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory, mock_mcp_server(200, response) as (url, received):
+            outcome = self.configure.verify_server(url, Path(temporary_directory), 8000)
+
+        self.assertTrue(outcome.ok, outcome.evidence)
+        self.assertEqual(received["method"], "POST")
+        self.assertEqual(received["path"], "/mcp")
+        self.assertEqual(json.loads(received["body"]), {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "clientInfo": {"name": "unreal-mcp-configure", "version": "1.0"},
+            },
+        })
+        headers = {key.lower(): value for key, value in received["headers"].items()}
+        self.assertEqual(headers["content-type"], "application/json")
+        self.assertIn("application/json", headers["accept"])
+        self.assertIn("text/event-stream", headers["accept"])
+
+    def test_verify_bypasses_environment_proxy_for_loopback_endpoint(self) -> None:
+        success = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with mock_mcp_server(200, success) as (target_url, target_received):
+                with mock_mcp_server(502, b"proxy intercepted request") as (proxy_url, proxy_received):
+                    proxy_origin = proxy_url.removesuffix("/mcp")
+                    proxy_environment = {
+                        "HTTP_PROXY": proxy_origin,
+                        "HTTPS_PROXY": proxy_origin,
+                        "NO_PROXY": "",
+                        "no_proxy": "",
+                    }
+                    with mock.patch.dict(os.environ, proxy_environment), mock.patch.object(
+                        self.configure.urllib.request, "_opener", None
+                    ):
+                        outcome = self.configure.verify_server(target_url, Path(temporary_directory), 8000)
+
+        self.assertTrue(outcome.ok, f"loopback request inherited environment proxy: {outcome.evidence}")
+        self.assertEqual(target_received["path"], "/mcp")
+        self.assertEqual(proxy_received, {})
+
+    def test_verify_accepts_first_sse_data_payload(self) -> None:
+        response = b"event: message\ndata: {\"jsonrpc\": \"2.0\", \"id\": 1, \"result\": {\"protocolVersion\": \"2025-11-25\"}}\n\n"
+        with tempfile.TemporaryDirectory() as temporary_directory, mock_mcp_server(200, response, "text/event-stream") as (url, _):
+            outcome = self.configure.verify_server(url, Path(temporary_directory), 8000)
+
+        self.assertTrue(outcome.ok, outcome.evidence)
+
+    def test_verify_rejects_malformed_json_and_json_rpc_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            with mock_mcp_server(200, b"not-json") as (url, _):
+                malformed = self.configure.verify_server(url, project_root, 8000)
+            error_response = json.dumps({"jsonrpc": "2.0", "id": 1, "error": {"code": -32600}}).encode()
+            with mock_mcp_server(200, error_response) as (url, _):
+                rpc_error = self.configure.verify_server(url, project_root, 8000)
+
+        self.assertFalse(malformed.ok)
+        self.assertIn("malformed", malformed.evidence.lower())
+        self.assertFalse(rpc_error.ok)
+        self.assertIn("json-rpc error", rpc_error.evidence.lower())
+
+    def test_verify_rejects_http_error_and_connection_failure(self) -> None:
+        response = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            with mock_mcp_server(503, response) as (url, _):
+                http_error = self.configure.verify_server(url, project_root, 8000)
+            opener = mock.Mock()
+            opener.open.side_effect = self.configure.urllib.error.URLError("connection refused")
+            with mock.patch.object(self.configure.urllib.request, "build_opener", return_value=opener):
+                refused = self.configure.verify_server("http://127.0.0.1:9/mcp", project_root, 9)
+
+        self.assertFalse(http_error.ok)
+        self.assertIn("http 503", http_error.evidence.lower())
+        self.assertFalse(refused.ok)
+        self.assertIn("connection", refused.evidence.lower())
+
+    def test_cli_real_run_statuses_cover_configured_verified_recovery_and_protected_blocker(self) -> None:
+        success = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            uproject = self.make_project(project_root)
+
+            configured = subprocess.run(
+                [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "claude"],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(configured.returncode, 0, configured.stderr)
+            self.assertIn("status: configured", configured.stdout)
+
+            with mock_mcp_server(200, success) as (url, _):
+                port = url.split(":")[2].split("/")[0]
+                verified = subprocess.run(
+                    [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "cursor", "--port", port, "--verify"],
+                    capture_output=True, text=True, check=False,
+                )
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertIn("status: verified", verified.stdout)
+
+            failure_port = 9
+            recovery = subprocess.run(
+                [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "vscode", "--port", str(failure_port), "--verify"],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(recovery.returncode, 2, recovery.stderr)
+            self.assertIn("status: configured-but-recovery-required", recovery.stdout)
+            self.assertTrue((project_root / ".vscode" / "mcp.json").exists(), "verification failure must not roll back writes")
+
+            codex_path = project_root / ".codex" / "config.toml"
+            codex_path.parent.mkdir(exist_ok=True)
+            codex_path.write_text("[mcp_servers.other]\nurl = \"http://keep\"\n", encoding="utf-8")
+            protected = subprocess.run(
+                [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "codex"],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(protected.returncode, 1)
+            self.assertIn("status: protected-config-blocker", protected.stdout + protected.stderr)
+
+    def test_cli_dry_run_verify_probes_without_writes_and_has_recovery_status(self) -> None:
+        success = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            uproject = self.make_project(project_root)
+            with mock_mcp_server(200, success) as (url, _):
+                port = url.split(":")[2].split("/")[0]
+                verified = subprocess.run(
+                    [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "claude", "--port", port, "--dry-run", "--verify"],
+                    capture_output=True, text=True, check=False,
+                )
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertIn("status: verified", verified.stdout)
+            self.assertEqual(list(project_root.iterdir()), [uproject])
+
+            failed = subprocess.run(
+                [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "claude", "--port", "9", "--dry-run", "--verify"],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(failed.returncode, 2, failed.stderr)
+            self.assertIn("status: dry-run-recovery-required", failed.stdout)
+            self.assertEqual(list(project_root.iterdir()), [uproject])
+
+    def test_cli_dry_run_verify_probes_when_codex_config_is_protected(self) -> None:
+        success = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            uproject = self.make_project(project_root)
+            codex_path = project_root / ".codex" / "config.toml"
+            codex_path.parent.mkdir()
+            original_config = "[mcp_servers.other]\nurl = \"http://keep\"\n"
+            codex_path.write_text(original_config, encoding="utf-8")
+            with mock_mcp_server(200, success) as (url, _):
+                port = url.split(":")[2].split("/")[0]
+                result = subprocess.run(
+                    [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), "--target", "codex", "--port", port, "--dry-run", "--verify"],
+                    capture_output=True, text=True, check=False,
+                )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("status: verified", result.stdout)
+            self.assertEqual(codex_path.read_text(encoding="utf-8"), original_config)
 
 
 if __name__ == "__main__":

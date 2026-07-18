@@ -17,6 +17,26 @@ CORE_PLUGINS = ("ModelContextProtocol", "ToolsetRegistry")
 COMMON_TOOLSET_PLUGINS = ("EditorToolset", "AutomationTestToolset", "LiveCodingToolset")
 ALL_TOOLSET_PLUGINS = ("AllToolsets",)
 INI_SECTION = "/Script/ModelContextProtocolEngine.ModelContextProtocolSettings"
+INITIALIZE_REQUEST = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {},
+        "clientInfo": {"name": "unreal-mcp-configure", "version": "1.0"},
+    },
+}
+
+
+class ProtectedConfigBlocker(RuntimeError):
+    """A write-once client configuration prevents an atomic configure run."""
+
+
+class VerificationOutcome:
+    def __init__(self, ok: bool, evidence: str) -> None:
+        self.ok = ok
+        self.evidence = evidence
 
 
 def parse_args() -> argparse.Namespace:
@@ -193,7 +213,10 @@ def merge_mcp_json_config(path: Path, root_key: str, server_entry: dict[str, Any
 
 def write_codex_config(path: Path, url: str, dry_run: bool) -> None:
     if path.exists():
-        fail(
+        if dry_run:
+            show_plan(f"Preserve protected Codex MCP config at {path}", dry_run)
+            return
+        raise ProtectedConfigBlocker(
             f"Protected configuration blocker: Codex config already exists at '{path}'. "
             "UE's Codex TOML generation is write-once, so it was left unchanged."
         )
@@ -229,17 +252,65 @@ def editor_client_name(target: str) -> str:
     }[target]
 
 
-def verify_server(url: str, project_root: Path, port: int) -> None:
-    print()
-    print(f"Verifying {url} ...")
+def _parse_initialize_payload(body: bytes, content_type: str) -> dict[str, Any]:
+    text = body.decode("utf-8")
+    if content_type.lower().split(";", 1)[0].strip() == "text/event-stream":
+        for line in text.splitlines():
+            if line.startswith("data:"):
+                text = line.removeprefix("data:").lstrip()
+                break
+        else:
+            raise ValueError("SSE response has no data payload")
+    payload = json.loads(text)
+    if not isinstance(payload, dict):
+        raise ValueError("initialize response is not a JSON object")
+    return payload
+
+
+def _validate_initialize_payload(payload: dict[str, Any]) -> VerificationOutcome:
+    if payload.get("jsonrpc") != "2.0":
+        return VerificationOutcome(False, "initialize response is missing JSON-RPC version 2.0")
+    if type(payload.get("id")) is not int or payload["id"] != 1:
+        return VerificationOutcome(False, "initialize response has an unexpected JSON-RPC id")
+    if "error" in payload:
+        return VerificationOutcome(False, "initialize response contains a JSON-RPC error")
+    result = payload.get("result")
+    if not isinstance(result, dict):
+        return VerificationOutcome(False, "initialize response has no JSON-RPC result object")
+    protocol_version = result.get("protocolVersion")
+    if not isinstance(protocol_version, str) or not protocol_version.strip():
+        return VerificationOutcome(False, "initialize result has no non-empty protocolVersion")
+    return VerificationOutcome(True, f"MCP initialize succeeded with protocolVersion {protocol_version}")
+
+
+def verify_server(url: str, project_root: Path, port: int) -> VerificationOutcome:
+    del project_root, port
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(INITIALIZE_REQUEST).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
+        method="POST",
+    )
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(url, timeout=3) as response:
-            print(f"Server responded with HTTP {response.status}. Launch the agent from '{project_root}' and call list_toolsets.")
-    except (urllib.error.URLError, TimeoutError, OSError):
-        print(
-            f"No HTTP response from {url}. Start the UE editor, enable Auto Start or run "
-            f"ModelContextProtocol.StartServer {port}, then reconnect the agent."
-        )
+        with opener.open(request, timeout=3) as response:
+            if not 200 <= response.status < 300:
+                return VerificationOutcome(False, f"initialize request received HTTP {response.status}")
+            payload = _parse_initialize_payload(response.read(), response.headers.get("Content-Type", ""))
+    except urllib.error.HTTPError as exc:
+        exc.close()
+        return VerificationOutcome(False, f"initialize request received HTTP {exc.code}")
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return VerificationOutcome(False, f"initialize connection failed: {exc}")
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return VerificationOutcome(False, f"initialize response is malformed: {exc}")
+    return _validate_initialize_payload(payload)
+
+
+def print_status(status: str, evidence: str, recovery: str) -> None:
+    print(f"status: {status}")
+    print(f"evidence: {evidence}")
+    print(f"recovery: {recovery}")
 
 
 def main() -> int:
@@ -258,8 +329,8 @@ def main() -> int:
     print(f"Toolset profile: {args.toolset_profile}")
 
     codex_path = project_root / ".codex" / "config.toml"
-    if "codex" in clients and codex_path.exists():
-        fail(
+    if "codex" in clients and codex_path.exists() and not args.dry_run:
+        raise ProtectedConfigBlocker(
             f"Protected configuration blocker: Codex config already exists at '{codex_path}'. "
             "UE's Codex TOML generation is write-once, so it was left unchanged. No changes were written."
         )
@@ -271,36 +342,32 @@ def main() -> int:
 
     if not args.skip_auto_start:
         configure_editor_settings(project_root, args.port, args.dry_run)
-        print(
-            "Editor settings are written as project defaults. If UE ignores a setting name in this engine version, "
-            "set Auto Start Server in Editor Preferences > General > Model Context Protocol."
-        )
     else:
         print("Auto Start changes skipped by --skip-auto-start.")
 
     for client in clients:
         configure_client(project_root, client, server_url, args.dry_run)
 
-    print()
-    print("Editor console fallback:")
-    print(f"  ModelContextProtocol.StartServer {args.port}")
-    print(f"  ModelContextProtocol.GenerateClientConfig {editor_client_name(args.target)}")
-    print()
-    print("Post-configure next step:")
-    print("  Discover dirty/unsaved state through the live editor schema.")
-    print("  If clean, restart the matching editor process automatically and reconnect.")
-    print("  If dirty or unknown, request only the save/confirmation action that blocks safe restart.")
-    print("  Verify the endpoint, MCP logs, required Toolsets, and original task after restart.")
-
     if args.verify:
-        verify_server(server_url, project_root, args.port)
+        outcome = verify_server(server_url, project_root, args.port)
+        if outcome.ok:
+            print_status("verified", outcome.evidence, "MCP initialization is verified; continue with the requested agent operation.")
+            return 0
+        status = "dry-run-recovery-required" if args.dry_run else "configured-but-recovery-required"
+        print_status(status, outcome.evidence, "Configuration state is retained; MCP initialization must be recovered before agent operations.")
+        return 2
 
+    status = "dry-run" if args.dry_run else "configured"
+    print_status(status, "Configuration changes were planned or applied without an MCP initialize probe.", "MCP initialization remains unverified.")
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
+    except ProtectedConfigBlocker as exc:
+        print_status("protected-config-blocker", str(exc), "The protected configuration remains unchanged; select a non-protected configuration path.")
+        raise SystemExit(1)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         raise SystemExit(1)
