@@ -1,7 +1,7 @@
 interface:
   display_name: "Unreal MCP"
   short_description: "Automate Unreal Editor tasks through official MCP."
-  default_prompt: "Use $unreal-mcp to inspect and configure the UE project, recover the MCP connection, execute the requested editor task, and independently verify the result; request only a minimal blocker when automation cannot continue safely."
+  default_prompt: "Use $unreal-mcp to inspect and configure the UE project, recover the MCP connection through live settings, editor control, console, server start, or launch flags, execute the requested editor task, and independently verify effective state and the result; treat native Toolset schemas without list_toolsets as eager mode."
 
 # Codex MCP config (.codex/config.toml):
 # [mcp_servers.unreal-mcp]

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 import json
 import sys
 import urllib.error
@@ -16,7 +17,27 @@ CLIENTS = ("claude", "codex", "cursor", "vscode", "gemini")
 CORE_PLUGINS = ("ModelContextProtocol", "ToolsetRegistry")
 COMMON_TOOLSET_PLUGINS = ("EditorToolset", "AutomationTestToolset", "LiveCodingToolset")
 ALL_TOOLSET_PLUGINS = ("AllToolsets",)
-INI_SECTION = "/Script/ModelContextProtocol.ModelContextProtocolSettings"
+INI_SECTION = "/Script/ModelContextProtocolEngine.ModelContextProtocolSettings"
+INITIALIZE_REQUEST = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {},
+        "clientInfo": {"name": "unreal-mcp-configure", "version": "1.0"},
+    },
+}
+
+
+class ProtectedConfigBlocker(RuntimeError):
+    """A write-once client configuration prevents an atomic configure run."""
+
+
+class VerificationOutcome:
+    def __init__(self, ok: bool, evidence: str) -> None:
+        self.ok = ok
+        self.evidence = evidence
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,7 +72,7 @@ def fail(message: str) -> None:
 
 
 def resolve_uproject(project_path: str) -> Path:
-    path = Path(project_path).expanduser().resolve()
+    path = Path(project_path).expanduser().resolve(strict=False)
     if path.is_dir():
         projects = sorted(path.glob("*.uproject"))
         if not projects:
@@ -59,12 +80,23 @@ def resolve_uproject(project_path: str) -> Path:
         if len(projects) > 1:
             names = ", ".join(project.name for project in projects)
             fail(f"Multiple .uproject files found in '{path}': {names}. Pass the exact .uproject path.")
-        return projects[0]
+        return projects[0].resolve(strict=False)
     if path.suffix != ".uproject":
         fail("ProjectPath must point to a UE project directory or .uproject file.")
     if not path.exists():
         fail(f"ProjectPath does not exist: {path}")
     return path
+
+
+def require_project_target(project_root: Path, target: Path) -> Path:
+    resolved_root = project_root.resolve(strict=False)
+    resolved_target = target.resolve(strict=False)
+    if not resolved_target.is_relative_to(resolved_root):
+        fail(
+            f"Project containment blocker: target '{target}' resolves outside the project root "
+            f"'{resolved_root}' as '{resolved_target}'. No changes were written."
+        )
+    return target
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -77,9 +109,10 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def write_json(path: Path, value: dict[str, Any], dry_run: bool) -> None:
+def write_json(project_root: Path, path: Path, value: dict[str, Any], dry_run: bool) -> None:
     if dry_run:
         return
+    require_project_target(project_root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -100,6 +133,8 @@ def plugin_names_for_profile(profile: str) -> tuple[str, ...]:
 
 
 def enable_uproject_plugins(uproject: Path, plugin_names: tuple[str, ...], dry_run: bool) -> None:
+    project_root = uproject.resolve(strict=False).parent
+    require_project_target(project_root, uproject)
     project = read_json(uproject)
     plugins = project.get("Plugins")
     if plugins is None:
@@ -120,62 +155,98 @@ def enable_uproject_plugins(uproject: Path, plugin_names: tuple[str, ...], dry_r
     if changed:
         project["Plugins"] = plugins
         show_plan(f"Enable {', '.join(plugin_names)} in {uproject}", dry_run)
-        write_json(uproject, project, dry_run)
+        write_json(project_root, uproject, project, dry_run)
     else:
         print(f"Requested plugins already enabled in {uproject}")
 
 
-def set_ini_value(lines: list[str], section: str, key: str, value: str) -> None:
-    section_line = f"[{section}]"
-    section_index = next((i for i, line in enumerate(lines) if line.strip() == section_line), -1)
-    if section_index < 0:
+def normalize_ini_section(lines: list[str], section: str, managed_values: tuple[tuple[str, str], ...]) -> None:
+    section_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if line.strip().startswith("[")
+        and line.strip().endswith("]")
+        and line.strip()[1:-1].strip().casefold() == section.casefold()
+    ]
+    managed_keys = {key.casefold() for key, _ in managed_values}
+    managed_keys.add("ServerURLPath".casefold())
+
+    if not section_indexes:
         if lines and lines[-1].strip():
             lines.append("")
-        lines.extend([section_line, f"{key}={value}"])
+        lines.extend([f"[{section}]", *(f"{key}={value}" for key, value in managed_values)])
         return
 
-    insert_at = len(lines)
-    for index in range(section_index + 1, len(lines)):
-        stripped = lines[index].strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            insert_at = index
-            break
-        if lines[index].split("=", 1)[0].strip() == key and "=" in lines[index]:
-            lines[index] = f"{key}={value}"
-            return
-    lines.insert(insert_at, f"{key}={value}")
+    all_section_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if line.strip().startswith("[") and line.strip().endswith("]")
+    ]
+    preserved_managed_content: list[str] = []
+    blocks: list[tuple[int, int]] = []
+    for section_index in section_indexes:
+        section_end = next((index for index in all_section_indexes if index > section_index), len(lines))
+        blocks.append((section_index, section_end))
+        for line in lines[section_index + 1 : section_end]:
+            key = line.partition("=")[0].strip().casefold() if "=" in line else None
+            if key not in managed_keys:
+                preserved_managed_content.append(line)
+
+    normalized_block = [
+        f"[{section}]",
+        *preserved_managed_content,
+        *(f"{key}={value}" for key, value in managed_values),
+    ]
+    for block_index, (section_index, section_end) in reversed(list(enumerate(blocks))):
+        replacement = normalized_block if block_index == 0 else []
+        lines[section_index:section_end] = replacement
 
 
 def configure_editor_settings(project_root: Path, port: int, dry_run: bool) -> None:
-    engine_ini = project_root / "Config" / "DefaultEngine.ini"
-    lines = engine_ini.read_text(encoding="utf-8").splitlines() if engine_ini.exists() else []
+    settings_ini = project_root / "Config" / "DefaultEditorPerProjectUserSettings.ini"
+    require_project_target(project_root, settings_ini)
+    settings_bytes = settings_ini.read_bytes() if settings_ini.exists() else b""
+    has_utf8_bom = settings_bytes.startswith(codecs.BOM_UTF8)
+    lines = settings_bytes.decode("utf-8-sig").splitlines() if settings_bytes else []
 
-    set_ini_value(lines, INI_SECTION, "bAutoStartServer", "True")
-    set_ini_value(lines, INI_SECTION, "ServerPortNumber", str(port))
-    set_ini_value(lines, INI_SECTION, "ServerURLPath", "/mcp")
-    set_ini_value(lines, INI_SECTION, "bEnableToolSearch", "True")
+    normalize_ini_section(
+        lines,
+        INI_SECTION,
+        (
+            ("bAutoStartServer", "True"),
+            ("ServerPortNumber", str(port)),
+            ("ServerUrlPath", "/mcp"),
+            ("bEnableToolSearch", "True"),
+        ),
+    )
 
-    show_plan(f"Configure Unreal MCP editor settings in {engine_ini}", dry_run)
+    show_plan(f"Configure Unreal MCP editor settings in {settings_ini}", dry_run)
     if not dry_run:
-        engine_ini.parent.mkdir(parents=True, exist_ok=True)
-        engine_ini.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        settings_ini.parent.mkdir(parents=True, exist_ok=True)
+        encoding = "utf-8-sig" if has_utf8_bom else "utf-8"
+        settings_ini.write_text("\n".join(lines) + "\n", encoding=encoding)
 
 
-def merge_mcp_json_config(path: Path, server_entry: dict[str, Any], dry_run: bool) -> None:
+def merge_mcp_json_config(project_root: Path, path: Path, root_key: str, server_entry: dict[str, Any], dry_run: bool) -> None:
+    require_project_target(project_root, path)
     config = read_json(path)
-    servers = config.setdefault("mcpServers", {})
+    servers = config.setdefault(root_key, {})
     if not isinstance(servers, dict):
-        fail(f"mcpServers must be an object in {path}")
+        fail(f"{root_key} must be an object in {path}")
     servers["unreal-mcp"] = server_entry
     show_plan(f"Merge unreal-mcp server into {path}", dry_run)
-    write_json(path, config, dry_run)
+    write_json(project_root, path, config, dry_run)
 
 
-def write_codex_config(path: Path, url: str, dry_run: bool) -> None:
+def write_codex_config(project_root: Path, path: Path, url: str, dry_run: bool) -> None:
+    require_project_target(project_root, path)
     if path.exists():
-        fail(
-            f"Codex config already exists at '{path}'. UE's Codex TOML generation is write-once; "
-            "delete or edit the stale file manually before regenerating."
+        if dry_run:
+            show_plan(f"Preserve protected Codex MCP config at {path}", dry_run)
+            return
+        raise ProtectedConfigBlocker(
+            f"Protected configuration blocker: Codex config already exists at '{path}'. "
+            "UE's Codex TOML generation is write-once, so it was left unchanged."
         )
     show_plan(f"Create Codex MCP config at {path}", dry_run)
     if not dry_run:
@@ -185,15 +256,15 @@ def write_codex_config(path: Path, url: str, dry_run: bool) -> None:
 
 def configure_client(project_root: Path, client: str, url: str, dry_run: bool) -> None:
     if client == "claude":
-        merge_mcp_json_config(project_root / ".mcp.json", {"type": "http", "url": url, "disabled": False}, dry_run)
+        merge_mcp_json_config(project_root, project_root / ".mcp.json", "mcpServers", {"type": "http", "url": url, "disabled": False}, dry_run)
     elif client == "cursor":
-        merge_mcp_json_config(project_root / ".cursor" / "mcp.json", {"url": url}, dry_run)
+        merge_mcp_json_config(project_root, project_root / ".cursor" / "mcp.json", "mcpServers", {"url": url}, dry_run)
     elif client == "vscode":
-        merge_mcp_json_config(project_root / ".vscode" / "mcp.json", {"url": url}, dry_run)
+        merge_mcp_json_config(project_root, project_root / ".vscode" / "mcp.json", "servers", {"type": "http", "url": url}, dry_run)
     elif client == "gemini":
-        merge_mcp_json_config(project_root / ".gemini" / "settings.json", {"httpUrl": url}, dry_run)
+        merge_mcp_json_config(project_root, project_root / ".gemini" / "settings.json", "mcpServers", {"httpUrl": url}, dry_run)
     elif client == "codex":
-        write_codex_config(project_root / ".codex" / "config.toml", url, dry_run)
+        write_codex_config(project_root, project_root / ".codex" / "config.toml", url, dry_run)
     else:
         fail(f"Unsupported client: {client}")
 
@@ -209,17 +280,69 @@ def editor_client_name(target: str) -> str:
     }[target]
 
 
-def verify_server(url: str, project_root: Path, port: int) -> None:
-    print()
-    print(f"Verifying {url} ...")
+def _parse_initialize_payload(body: bytes, content_type: str) -> dict[str, Any]:
+    media_type = content_type.lower().split(";", 1)[0].strip()
+    if media_type not in {"application/json", "text/event-stream"}:
+        received = content_type or "<missing>"
+        raise ValueError(f"unsupported Content-Type: {received}")
+    text = body.decode("utf-8")
+    if media_type == "text/event-stream":
+        for line in text.splitlines():
+            if line.startswith("data:"):
+                text = line.removeprefix("data:").lstrip()
+                break
+        else:
+            raise ValueError("SSE response has no data payload")
+    payload = json.loads(text)
+    if not isinstance(payload, dict):
+        raise ValueError("initialize response is not a JSON object")
+    return payload
+
+
+def _validate_initialize_payload(payload: dict[str, Any]) -> VerificationOutcome:
+    if payload.get("jsonrpc") != "2.0":
+        return VerificationOutcome(False, "initialize response is missing JSON-RPC version 2.0")
+    if type(payload.get("id")) is not int or payload["id"] != 1:
+        return VerificationOutcome(False, "initialize response has an unexpected JSON-RPC id")
+    if "error" in payload:
+        return VerificationOutcome(False, "initialize response contains a JSON-RPC error")
+    result = payload.get("result")
+    if not isinstance(result, dict):
+        return VerificationOutcome(False, "initialize response has no JSON-RPC result object")
+    protocol_version = result.get("protocolVersion")
+    if not isinstance(protocol_version, str) or not protocol_version.strip():
+        return VerificationOutcome(False, "initialize result has no non-empty protocolVersion")
+    return VerificationOutcome(True, f"MCP initialize succeeded with protocolVersion {protocol_version}")
+
+
+def verify_server(url: str, project_root: Path, port: int) -> VerificationOutcome:
+    del project_root, port
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(INITIALIZE_REQUEST).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
+        method="POST",
+    )
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(url, timeout=3) as response:
-            print(f"Server responded with HTTP {response.status}. Launch the agent from '{project_root}' and call list_toolsets.")
-    except (urllib.error.URLError, TimeoutError, OSError):
-        print(
-            f"No HTTP response from {url}. Start the UE editor, enable Auto Start or run "
-            f"ModelContextProtocol.StartServer {port}, then reconnect the agent."
-        )
+        with opener.open(request, timeout=3) as response:
+            if not 200 <= response.status < 300:
+                return VerificationOutcome(False, f"initialize request received HTTP {response.status}")
+            payload = _parse_initialize_payload(response.read(), response.headers.get("Content-Type", ""))
+    except urllib.error.HTTPError as exc:
+        exc.close()
+        return VerificationOutcome(False, f"initialize request received HTTP {exc.code}")
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return VerificationOutcome(False, f"initialize connection failed: {exc}")
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        return VerificationOutcome(False, f"initialize response is malformed: {exc}")
+    return _validate_initialize_payload(payload)
+
+
+def print_status(status: str, evidence: str, recovery: str) -> None:
+    print(f"status: {status}")
+    print(f"evidence: {evidence}")
+    print(f"recovery: {recovery}")
 
 
 def main() -> int:
@@ -228,7 +351,7 @@ def main() -> int:
         fail("Port must be in range 1..65535.")
 
     uproject = resolve_uproject(args.project_path)
-    project_root = uproject.parent
+    project_root = uproject.resolve(strict=False).parent
     server_url = f"http://127.0.0.1:{args.port}/mcp"
     clients = list(CLIENTS) if args.target == "all" else [args.target]
 
@@ -238,10 +361,26 @@ def main() -> int:
     print(f"Toolset profile: {args.toolset_profile}")
 
     codex_path = project_root / ".codex" / "config.toml"
-    if "codex" in clients and codex_path.exists():
-        fail(
-            f"Codex config already exists at '{codex_path}'. UE's Codex TOML generation is write-once; "
-            "delete or edit the stale file manually before regenerating. No changes were written."
+    selected_targets: list[Path] = []
+    if not args.skip_enable_plugins:
+        selected_targets.append(uproject)
+    if not args.skip_auto_start:
+        selected_targets.append(project_root / "Config" / "DefaultEditorPerProjectUserSettings.ini")
+    client_targets = {
+        "claude": project_root / ".mcp.json",
+        "codex": codex_path,
+        "cursor": project_root / ".cursor" / "mcp.json",
+        "vscode": project_root / ".vscode" / "mcp.json",
+        "gemini": project_root / ".gemini" / "settings.json",
+    }
+    selected_targets.extend(client_targets[client] for client in clients)
+    for target in selected_targets:
+        require_project_target(project_root, target)
+
+    if "codex" in clients and codex_path.exists() and not args.dry_run:
+        raise ProtectedConfigBlocker(
+            f"Protected configuration blocker: Codex config already exists at '{codex_path}'. "
+            "UE's Codex TOML generation is write-once, so it was left unchanged. No changes were written."
         )
 
     if not args.skip_enable_plugins:
@@ -251,36 +390,32 @@ def main() -> int:
 
     if not args.skip_auto_start:
         configure_editor_settings(project_root, args.port, args.dry_run)
-        print(
-            "Editor settings are written as project defaults. If UE ignores a setting name in this engine version, "
-            "set Auto Start Server in Editor Preferences > General > Model Context Protocol."
-        )
     else:
         print("Auto Start changes skipped by --skip-auto-start.")
 
     for client in clients:
         configure_client(project_root, client, server_url, args.dry_run)
 
-    print()
-    print("Editor console fallback:")
-    print(f"  ModelContextProtocol.StartServer {args.port}")
-    print(f"  ModelContextProtocol.GenerateClientConfig {editor_client_name(args.target)}")
-    print()
-    print("Post-configure next step:")
-    print("  Discover dirty/unsaved state through the live editor schema.")
-    print("  If clean, restart the matching editor process automatically and reconnect.")
-    print("  If dirty or unknown, request only the save/confirmation action that blocks safe restart.")
-    print("  Verify the endpoint, MCP logs, required Toolsets, and original task after restart.")
-
     if args.verify:
-        verify_server(server_url, project_root, args.port)
+        outcome = verify_server(server_url, project_root, args.port)
+        if outcome.ok:
+            print_status("verified", outcome.evidence, "MCP initialization is verified; continue with the requested agent operation.")
+            return 0
+        status = "dry-run-recovery-required" if args.dry_run else "configured-but-recovery-required"
+        print_status(status, outcome.evidence, "Configuration state is retained; MCP initialization must be recovered before agent operations.")
+        return 2
 
+    status = "dry-run" if args.dry_run else "configured"
+    print_status(status, "Configuration changes were planned or applied without an MCP initialize probe.", "MCP initialization remains unverified.")
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
+    except ProtectedConfigBlocker as exc:
+        print_status("protected-config-blocker", str(exc), "The protected configuration remains unchanged; select a non-protected configuration path.")
+        raise SystemExit(1)
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         raise SystemExit(1)

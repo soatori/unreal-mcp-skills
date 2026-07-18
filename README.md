@@ -6,15 +6,15 @@ Agent automation for discovering, configuring, controlling, recovering, and veri
 
 > Supported version: UE 5.8+
 
-## Install
+## Installation
 
 ```bash
 npx skills add soatori/unreal-mcp-skills
 ```
 
-The package name is `unreal-mcp-skills`. The skill command is `unreal-mcp`. Do not use `/unreal-mcp-skills` as a command.
+The package name is `unreal-mcp-skills`. Activate the installed skill as `$unreal-mcp`.
 
-Use one of these forms in an agent session:
+## Supported Commands
 
 ```text
 $unreal-mcp
@@ -22,87 +22,32 @@ $unreal-mcp
 /ue-mcp
 /unreal-mcp:configure <client>
 /ue-mcp:configure <client>
+/unreal-mcp:execute-blueprint
+/unreal-mcp:open-widget
+/unreal-mcp:find-installations
 ```
 
 ## Agent Automation
 
-Invoke `$unreal-mcp` with the editor outcome you want. The skill directs the agent to discover the project and live Toolsets, configure or recover MCP when needed, execute the editor operation, and verify the result. Human input is reserved for an ambiguous target, a protected write, missing authorization, or a dirty-state safety gate that cannot be resolved through available controls.
+Use `$unreal-mcp` with the editor outcome to produce. The agent resolves the project, discovers live capabilities, configures or recovers MCP when necessary, executes the scoped editor operation, and independently verifies the result. It records completed actions, resulting state, partial failures, and a minimal blocker only when no available control channel can safely proceed.
 
-## Configure Command
+## Configure Behavior
 
-`/unreal-mcp:configure <client>` automatically configures the current UE project and selected MCP client. The agent resolves a single `.uproject`, runs and inspects a dry-run, enables the selected Toolset profile, writes Auto Start defaults, and creates or merges the client configuration. It stops only for an ambiguous project, a protected existing configuration, or unexpected out-of-scope changes; otherwise it completes any required restart or connection recovery and verifies the live Toolsets.
+The canonical configure command automatically resolves one `.uproject`, inspects a dry-run, enables the selected Toolset profile, writes shared Auto Start defaults, creates or merges supported client configuration when permitted, recovers the connection, and verifies the live capability surface. The default profile is `common`: `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset` alongside core MCP plugins.
 
-Supported targets:
+Shared defaults are written to `Config/DefaultEditorPerProjectUserSettings.ini` in `/Script/ModelContextProtocolEngine.ModelContextProtocolSettings`; the URL-path key is `ServerUrlPath`. They do not overwrite an existing `Saved/Config/*Editor/EditorPerProjectUserSettings.ini`, which the agent does not mutate automatically. The agent recovers the current session through live `ConfigSettingsToolset`, editor control or console, `ModelContextProtocol.StartServer`, or launch flags, then independently verifies effective state.
 
-| Target | Config file |
-|---|---|
-| `claude` | `.mcp.json` |
-| `codex` | `.codex/config.toml` |
-| `cursor` | `.cursor/mcp.json` |
-| `vscode` | `.vscode/mcp.json` |
-| `gemini` | `.gemini/settings.json` |
-| `all` | all supported clients |
+If `list_toolsets` is absent while native Toolset operations or schemas are available, the agent treats the connection as Tool Search disabled/eager mode, prefers restoring `bEnableToolSearch=True`, and otherwise uses the live native schemas to complete and verify the task. An existing `.codex/config.toml` is one protected-configuration authorization blocker and remains unchanged.
 
-Codex TOML is protected as write-once. If `.codex/config.toml` already exists, the script stops and asks for manual cleanup instead of overwriting it.
+## Capability and Safety Boundaries
 
-The configure helper is implementation support for the skill command. `Client` selects the client config; it does not skip project setup. For example, `/unreal-mcp:configure codex` still enables `ModelContextProtocol`, `ToolsetRegistry`, `EditorToolset`, `AutomationTestToolset`, and `LiveCodingToolset`, then writes `Config/DefaultEngine.ini` defaults.
-
-The default Toolset profile is `common`, which covers the most frequent editor tasks: editor state/logs/viewport/selection, scene/actor/asset/Blueprint/material operations, automation test discovery, and Live Coding. Use `-ToolsetProfile core` for core MCP transport only, or `-ToolsetProfile all` for broad exploration.
-
-After configuration, the agent discovers unsaved state. It restarts the matching editor automatically when the editor is proven clean; otherwise it requests only the save or confirmation action required for a safe restart.
-
-## What This Skill Covers
-
-- Tool Search flow: `list_toolsets` -> `describe_toolset` -> `call_tool`.
-- Editor, scene, actor, asset, Blueprint, log, automation test, and Live Coding workflows exposed by enabled Toolsets.
-- Safe read-before-write editor operations.
-- UE AgentSkill inspection and creation/update boundaries.
-- Blueprint EventGraph reading, including fallback from `read_graph_dsl` to node and pin inspection.
-- `uasset_read` comparison support using UE MCP as editor semantic evidence, not binary serialization proof.
-
-For detailed Toolset maps, runtime limits, custom Toolset authoring, and known call-shape pitfalls, read `references/mcp-tools.md`.
-
-For parser comparison work, read `references/uasset-read-comparison.md`.
-
-## Maintenance
-
-Run the skill consistency check after editing docs, examples, metadata, or scripts:
-
-```bash
-python scripts/validate-skill.py
-```
-
-The configure helper is implementation support for `/unreal-mcp:configure`; the agent runs it as part of the automation workflow.
-
-Useful local checks:
-
-```bash
-find references/examples -type f
-rg -n '/unreal-mcp-skills|unreal-mcp-skills\\' SKILL.md README.md references agents
-```
-
-Expected key files:
-
-```text
-unreal-mcp/
-├── SKILL.md
-├── README.md
-├── skills.sh.json
-├── agents/
-│   ├── claude.md
-│   └── openai.yaml
-├── scripts/
-│   ├── configure-unreal-mcp.py
-│   ├── validate-skill.py
-│   └── find-ue-installations.py
-└── references/
-    ├── configure-workflow.md
-    ├── mcp-tools.md
-    ├── uasset-read-comparison.md
-    └── examples/
-```
+- Live Toolset schemas are authoritative; do not invent Toolsets or arguments.
+- Calls execute serially on the editor game thread; dependent calls wait for completion.
+- Every mutation has a read-only preflight where possible and an independent post-write readback.
+- Restarts use the dirty-state gate and never terminate an unrelated editor process.
+- `CreateSkill` and `UpdateSkill` create or update Blueprint-backed UE assets and require explicit authorization.
+- Unreal MCP is loopback-only and has no authentication layer; do not expose it beyond the local machine.
 
 ## Official Reference
 
 - [Epic Unreal MCP documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)
-

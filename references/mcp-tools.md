@@ -23,19 +23,18 @@ The friendly plugin name is **Unreal MCP**. Engine identifiers, console commands
 
 `ModelContextProtocol` and `ModelContextProtocolEngine` are runtime modules. `ModelContextProtocolEditor` is editor-only and adapts Toolset Registry-discovered toolsets into MCP tools. Cooked or shipping builds can host an MCP server, but Toolset Registry auto-discovery is not available there.
 
-## Setup And Configuration
+## Agent Configuration and Control Channels
 
-For `/unreal-mcp:configure`, use `references/configure-workflow.md` and the script-backed workflow first. The setup details below are reference data for agent automation; they are not a user-facing fallback procedure.
+For the canonical configure command, use `references/configure-workflow.md` and the script-backed workflow. Shared defaults belong in `Config/DefaultEditorPerProjectUserSettings.ini`, section `/Script/ModelContextProtocolEngine.ModelContextProtocolSettings`; the URL-path key is `ServerUrlPath`. They do not overwrite an existing `Saved/Config/*Editor/EditorPerProjectUserSettings.ini`, which must not be mutated automatically.
 
-| Item | Default or command | Notes |
+| Setting or state | Expected value | Agent control and evidence |
 |---|---|---|
-| Enable plugin | Unreal MCP | Enable from Edit > Plugins. `ToolsetRegistry` is a dependency and is enabled automatically. Restart when prompted. |
-| Auto Start Server | `false` | Editor Preferences > General > Model Context Protocol. When enabled, starts on editor launch. |
-| Server URL | `http://127.0.0.1:8000/mcp` | Default bind is loopback only. |
-| Server Port Number | `8000` | Can be changed in preferences or overridden by command. |
-| Server URL Path | `/mcp` | Can be changed when defaults conflict with another local service. |
-| Server name | `unreal-mcp` | Advertised in `serverInfo.name`. |
-| Enable Tool Search | `true` | `tools/list` returns meta-tools instead of every tool schema. |
+| Core plugins | `ModelContextProtocol`, `ToolsetRegistry` | Inspect `.uproject`, live plugin state, and exact live schemas. |
+| Auto Start | `bAutoStartServer=True` shared default | Write only the project default; read back effective session state. |
+| Endpoint | `http://127.0.0.1:8000/mcp` by default | Check configured endpoint, process, port, and loopback response. |
+| URL path | `ServerUrlPath=/mcp` | Read the exact settings section and effective endpoint. |
+| Tool Search | `bEnableToolSearch=True` preferred | Restore when safe; native schemas without `list_toolsets` mean eager mode, not disconnection. |
+| Current-session recovery | live settings, control/console, server start, or launch flags | Use `ConfigSettingsToolset`, editor control/console, `ModelContextProtocol.StartServer`, or launch flags, then independently verify effective state. |
 
 Console commands:
 
@@ -63,123 +62,11 @@ Important console variables:
 | `ModelContextProtocol.PaginationPageSize` | `0` | Maximum paginated response size; `0` disables pagination. |
 | `ModelContextProtocol.EnableAnalytics` | `true` | Gate telemetry emission. |
 
-Client config notes:
-
-- JSON client configs such as Claude Code, Cursor, VS Code, and Gemini are merged with existing entries, so regenerating is safe.
-- **Codex CLI TOML config is write-once.** The command refuses to overwrite an existing `.codex/config.toml` file. Before regenerating, manually delete the stale config file. This is a hard restriction, not a merge behavior.
-- Launch the agent from the project or workspace root where config files were generated.
-
-## Quick Setup (Step by Step)
-
-### 1. Enable Plugins
-
-In UE Editor: **Edit > Plugins**, search and enable:
-
-- **Unreal MCP** (engine identifier: `ModelContextProtocol`)
-- **ToolsetRegistry** — enabled automatically as a dependency of Unreal MCP
-
-Optional domain Toolsets (enable only what you need):
-
-- **EditorToolset** — editor automation, viewport, selection, camera
-- **AutomationTestToolset** — automation test discovery and execution
-- **LiveCodingToolset** — Live Coding compilation
-
-Restart the editor when prompted.
-
-### 2. Start the MCP Server
-
-Either enable **Auto Start Server** in Editor Preferences > General > Model Context Protocol, or run in the Output Log:
-
-```
-ModelContextProtocol.StartServer
-```
-
-Verify with:
-
-```
-ModelContextProtocol.RefreshTools
-```
-
-### 3. Generate Client Config
-
-Run in the UE Editor console (Output Log or Cmd):
-
-```
-ModelContextProtocol.GenerateClientConfig ClaudeCode
-```
-
-Supported clients: `ClaudeCode`, `Cursor`, `VSCode`, `Gemini`, `Codex`, `All`.
-
-This merges the Unreal MCP server into the config file in the project root (existing entries are preserved for JSON formats). Sample configs for each client:
-
-| Client | Config file | Key format |
-|---|---|---|
-| Claude Code | `.mcp.json` | `"type": "http", "url": "..."` |
-| Codex | `.codex/config.toml` | `[mcp_servers.unreal-mcp] url = "..."` |
-| Cursor | `.cursor/mcp.json` | `"url": "..."` (no type field) |
-| Gemini | `.gemini/settings.json` | `"httpUrl": "..."` |
-
-Full sample configs are in `references/examples/` (copy the relevant files to your project root).
-
-### 4. Connect the Agent
-
-Launch the agent **from the project root** where the config was generated:
-
-```bash
-cd /path/to/your/ue/project
-claude          # Claude Code
-codex           # Codex
-```
-
-### 5. Verify Connection
-
-Once connected, confirm MCP tools are available:
-
-```json
-{ "tool_name": "list_toolsets" }
-```
-
-If no tools appear, see the Debugging section in `SKILL.md`.
-
-## Troubleshooting
-
-| Symptom | Check |
+| Client configuration | Agent action and boundary |
 |---|---|
-| Plugin not found in Edit > Plugins | Confirm UE version is 5.8+; search for "Unreal MCP" not "ModelContextProtocol" |
-| Server fails to start | Check port 8000 is not occupied; review `LogModelContextProtocol` in Output Log |
-| Tools not visible after connect | Run `ModelContextProtocol.RefreshTools`; reconnect the agent from the project root |
-| Schema looks stale | Reconnect the client; regenerated configs merge with existing entries (except Codex TOML) |
-| `call_tool` returns `Unknown tool` | Use the short tool name with `toolset_name`, not the fully qualified name |
-
-## Terminal Plugin (Optional)
-
-The Terminal plugin embeds a terminal panel inside the editor, allowing the entire AI agent workflow to stay in a single window.
-
-### Setup
-
-1. Enable the **Terminal** plugin (Edit > Plugins, search "Terminal"). Restart when prompted.
-2. Open Editor Preferences > General > Terminal.
-3. Add entries to **Startup Commands** in this order:
-
-   **Windows (cmd.exe):**
-   ```
-   set TERM=xterm-256color
-   cd /d "<project-root>"
-   claude
-   ```
-
-   **Unix shells (bash/zsh):**
-   ```bash
-   export TERM=xterm-256color
-   cd "<project-root>"
-   claude
-   ```
-
-The explicit `cd` is required because the Terminal panel starts in `FPaths::RootDir()`, which may not match where `.mcp.json` was generated. The `TERM` variable prevents degraded terminal mode and raw escape sequences.
-
-### Usage
-
-After setup, open the Terminal panel in the editor. The AI agent launches automatically with the MCP connection already configured. No separate terminal window needed.
+| Claude Code, Cursor, VS Code, Gemini | Merge generated JSON configuration without deleting existing MCP servers, then verify its endpoint. |
+| Codex | An existing `.codex/config.toml` is a minimal protected-configuration authorization blocker; leave it unchanged. |
+| Connection recovery | Inspect endpoint, process, port, `LogModelContextProtocol`, and `LogToolsetRegistry`; refresh/reconnect and use the effective discovery surface. |
 
 ## Tool Search
 
