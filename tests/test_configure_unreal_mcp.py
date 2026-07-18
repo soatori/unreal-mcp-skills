@@ -30,7 +30,7 @@ def load_configure_module():
 
 
 @contextmanager
-def mock_mcp_server(status: int, body: bytes, content_type: str = "application/json") -> Iterator[tuple[str, dict[str, object]]]:
+def mock_mcp_server(status: int, body: bytes, content_type: str | None = "application/json") -> Iterator[tuple[str, dict[str, object]]]:
     received: dict[str, object] = {}
 
     class Handler(BaseHTTPRequestHandler):
@@ -40,7 +40,8 @@ def mock_mcp_server(status: int, body: bytes, content_type: str = "application/j
             received["headers"] = dict(self.headers.items())
             received["body"] = self.rfile.read(int(self.headers.get("Content-Length", "0")))
             self.send_response(status)
-            self.send_header("Content-Type", content_type)
+            if content_type is not None:
+                self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -68,6 +69,69 @@ class ConfigureUnrealMcpTests(unittest.TestCase):
         uproject = root / "Sample.uproject"
         uproject.write_text(contents, encoding="utf-8")
         return uproject
+
+    def make_symlink_or_skip(self, link: Path, target: Path, *, is_directory: bool) -> None:
+        try:
+            link.symlink_to(target, target_is_directory=is_directory)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest(f"platform refused temporary symlink creation: {exc}")
+
+    def run_configure(self, uproject: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "-B", str(SCRIPT_PATH), "--project-path", str(uproject), *arguments],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_project_target_containment_rejects_a_direct_escape_deterministically(self) -> None:
+        guard = getattr(self.configure, "require_project_target", None)
+        self.assertIsNotNone(guard, "configure helper must expose the project target containment guard")
+        if guard is None:
+            return
+        with tempfile.TemporaryDirectory() as project_directory, tempfile.TemporaryDirectory() as outside_directory:
+            with self.assertRaisesRegex(RuntimeError, "containment blocker"):
+                guard(Path(project_directory), Path(outside_directory) / "escaped.json")
+
+    def test_file_destination_symlink_escape_blocks_before_any_selected_write(self) -> None:
+        with tempfile.TemporaryDirectory() as project_directory, tempfile.TemporaryDirectory() as outside_directory:
+            project_root = Path(project_directory)
+            uproject_original = "{}\n"
+            uproject = self.make_project(project_root, uproject_original)
+            outside_file = Path(outside_directory) / "outside.json"
+            outside_original = '{"outside": "unchanged"}\n'
+            outside_file.write_text(outside_original, encoding="utf-8")
+            self.make_symlink_or_skip(project_root / ".mcp.json", outside_file, is_directory=False)
+
+            result = self.run_configure(uproject, "--target", "claude")
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("containment blocker", (result.stdout + result.stderr).lower())
+            self.assertEqual(uproject.read_text(encoding="utf-8"), uproject_original)
+            self.assertEqual(outside_file.read_text(encoding="utf-8"), outside_original)
+            self.assertFalse((project_root / "Config").exists())
+
+    def test_directory_symlink_escapes_are_blocked_across_writer_categories(self) -> None:
+        cases = (
+            ("editor settings", "Config", ("--target", "claude", "--skip-enable-plugins"), "DefaultEditorPerProjectUserSettings.ini"),
+            ("JSON client", ".cursor", ("--target", "cursor", "--skip-enable-plugins", "--skip-auto-start"), "mcp.json"),
+            ("Codex TOML", ".codex", ("--target", "codex", "--skip-enable-plugins", "--skip-auto-start"), "config.toml"),
+        )
+        for category, link_name, arguments, escaped_name in cases:
+            with self.subTest(category=category):
+                with tempfile.TemporaryDirectory() as project_directory, tempfile.TemporaryDirectory() as outside_directory:
+                    project_root = Path(project_directory)
+                    uproject = self.make_project(project_root)
+                    outside_root = Path(outside_directory)
+                    self.make_symlink_or_skip(project_root / link_name, outside_root, is_directory=True)
+
+                    result = self.run_configure(uproject, *arguments)
+
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("containment blocker", (result.stdout + result.stderr).lower())
+                    self.assertFalse((outside_root / escaped_name).exists())
+                    self.assertEqual(uproject.read_text(encoding="utf-8"), "{}\n")
+                    self.assertFalse((project_root / ".mcp.json").exists())
 
     def test_writes_project_default_editor_settings_with_expected_keys(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -126,6 +190,77 @@ class ConfigureUnrealMcpTests(unittest.TestCase):
             self.assertEqual(lines.count("ServerUrlPath=/mcp"), 1)
             self.assertNotIn("ServerURLPath=/legacy", lines)
             self.assertEqual(lines.count("bEnableToolSearch=True"), 1)
+
+    def test_normalizes_repeated_mcp_sections_and_preserves_unmanaged_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            settings_path = project_root / "Config" / "DefaultEditorPerProjectUserSettings.ini"
+            settings_path.parent.mkdir()
+            settings_path.write_text(
+                "; preamble comment\n"
+                "[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]\n"
+                "; first MCP comment\nFirstUnmanaged=preserved\nServerPortNumber=7000\n\n"
+                "[OtherSection]\nOtherKey=preserved\n\n"
+                "[/script/modelcontextprotocolengine.modelcontextprotocolsettings]\n"
+                "; second MCP comment\nSecondUnmanaged=preserved\n"
+                "serverportnumber=9000\nBAUTOSTARTSERVER=False\n"
+                "ServerURLPath=/legacy\nServerUrlPath=/stale\nbEnableToolSearch=False\n",
+                encoding="utf-8",
+            )
+
+            self.configure.configure_editor_settings(project_root, 8123, dry_run=False)
+
+            lines = settings_path.read_text(encoding="utf-8").splitlines()
+            section = f"[{self.configure.INI_SECTION}]".casefold()
+            self.assertEqual(sum(line.strip().casefold() == section for line in lines), 1)
+            for key, expected in (
+                ("bAutoStartServer", "bAutoStartServer=True"),
+                ("ServerPortNumber", "ServerPortNumber=8123"),
+                ("ServerUrlPath", "ServerUrlPath=/mcp"),
+                ("bEnableToolSearch", "bEnableToolSearch=True"),
+            ):
+                self.assertEqual(sum(line.partition("=")[0].strip().casefold() == key.casefold() for line in lines), 1)
+                self.assertIn(expected, lines)
+            self.assertFalse(any(line.partition("=")[0].strip() == "ServerURLPath" for line in lines))
+            for preserved in (
+                "; preamble comment",
+                "; first MCP comment",
+                "FirstUnmanaged=preserved",
+                "[OtherSection]",
+                "OtherKey=preserved",
+                "; second MCP comment",
+                "SecondUnmanaged=preserved",
+            ):
+                self.assertIn(preserved, lines)
+
+    def test_normalizes_a_bom_prefixed_first_mcp_section_and_preserves_the_bom(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            settings_path = project_root / "Config" / "DefaultEditorPerProjectUserSettings.ini"
+            settings_path.parent.mkdir()
+            settings_path.write_bytes(
+                b"\xef\xbb\xbf"
+                + (
+                    "[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]\n"
+                    "; BOM section comment\nUnmanaged=preserved\nServerPortNumber=7000\n"
+                    "[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]\n"
+                    "bAutoStartServer=False\nServerURLPath=/legacy\n"
+                ).encode("utf-8")
+            )
+
+            self.configure.configure_editor_settings(project_root, 8123, dry_run=False)
+
+            output = settings_path.read_bytes()
+            self.assertTrue(output.startswith(b"\xef\xbb\xbf"), "UTF-8 BOM must be preserved")
+            text = output.decode("utf-8-sig")
+            lines = text.splitlines()
+            self.assertEqual(lines.count(f"[{self.configure.INI_SECTION}]"), 1)
+            self.assertIn("; BOM section comment", lines)
+            self.assertIn("Unmanaged=preserved", lines)
+            self.assertEqual(lines.count("ServerPortNumber=8123"), 1)
+            self.assertEqual(lines.count("bAutoStartServer=True"), 1)
+            self.assertEqual(lines.count("ServerUrlPath=/mcp"), 1)
+            self.assertNotIn("ServerURLPath=/legacy", lines)
 
     def test_dry_run_writes_no_project_or_client_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -250,6 +385,29 @@ class ConfigureUnrealMcpTests(unittest.TestCase):
             outcome = self.configure.verify_server(url, Path(temporary_directory), 8000)
 
         self.assertTrue(outcome.ok, outcome.evidence)
+
+    def test_verify_accepts_only_parameterized_json_and_sse_media_types(self) -> None:
+        json_response = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        sse_response = b'data: {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}\n\n'
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            for content_type, response in (
+                ("application/json; charset=utf-8", json_response),
+                ("text/event-stream; charset=utf-8", sse_response),
+            ):
+                with self.subTest(content_type=content_type), mock_mcp_server(200, response, content_type) as (url, _):
+                    outcome = self.configure.verify_server(url, project_root, 8000)
+                    self.assertTrue(outcome.ok, outcome.evidence)
+
+    def test_verify_rejects_missing_plain_and_other_media_types(self) -> None:
+        response = json.dumps({"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-11-25"}}).encode()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            for content_type in (None, "text/plain", "application/xml"):
+                with self.subTest(content_type=content_type), mock_mcp_server(200, response, content_type) as (url, _):
+                    outcome = self.configure.verify_server(url, project_root, 8000)
+                    self.assertFalse(outcome.ok)
+                    self.assertIn("content-type", outcome.evidence.lower())
 
     def test_verify_rejects_malformed_json_and_json_rpc_error(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

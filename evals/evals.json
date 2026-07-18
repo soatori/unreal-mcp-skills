@@ -4,55 +4,85 @@
     {
       "id": 1,
       "prompt": "Find all locally installed Unreal Engine versions on my system",
-      "expected_output": "Run find-ue-installations.py, validate returned executable paths and versions, and report verified installations rather than giving discovery instructions.",
+      "expected_output": "Execute find-ue-installations.py, independently verify executable paths and versions with independent evidence, and report verified installations; return a minimal blocker only when no available discovery channel can safely continue; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 2,
       "prompt": "Open D:/Projects/MyGame in Unreal and make MCP ready for this session",
-      "expected_output": "Resolve the .uproject; inspect plugins, DefaultEngine.ini, client config, process, and endpoint; run configure dry-run then write if missing; launch or recover the editor; list live Toolsets and verify required schemas.",
+      "expected_output": "Execute project resolution, state inspection, safe configuration, launch or recovery, and live Toolset verification with independent evidence; return a minimal blocker only when every applicable control channel cannot safely perform the next action; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 3,
       "prompt": "I can't connect to the MCP server. list_toolsets returns nothing",
-      "expected_output": "Treat an empty registry as failed discovery; execute connection recovery by checking configuration, port, editor process, and logs; start or refresh the server through available controls; reconnect and verify list_toolsets. Return a minimal blocker only with evidence that applicable control channels cannot perform the next action.",
+      "expected_output": "Execute connection recovery through configuration, port, process, and log checks, then reconnect and verify discovery with independent evidence; return a minimal blocker only when applicable control channels cannot safely perform the next recovery action; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 4,
       "prompt": "The Blueprint graph read_graph_dsl returns an empty string; inspect the graph anyway",
-      "expected_output": "Use the live Blueprint schema, call find_nodes with an empty title, inspect node infos and connected subgraphs, and verify graph execution/data flow instead of treating empty DSL as an empty graph.",
+      "expected_output": "Execute live-schema graph inspection with find_nodes, node infos, and connected subgraphs, then independently verify execution and data flow with independent evidence; return a minimal blocker only when no exposed graph operation can safely continue; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 5,
       "prompt": "The GameplayTags Toolset is missing; enable what is needed and continue my task",
-      "expected_output": "Identify the providing plugin from authoritative metadata/source, inspect live Toolsets and plugin state, enable only the task-required plugin, attempt dynamic refresh/reconnect once when supported, then repeat list_toolsets and describe_toolset before continuing and verifying the task.",
+      "expected_output": "Execute authoritative plugin identification, task-scoped enablement, one supported refresh, and Toolset/schema verification with independent evidence; return a minimal blocker only when the required plugin change or recovery has no safe control channel; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 6,
       "prompt": "The editor needs a restart after enabling the plugin and there are no unsaved assets",
-      "expected_output": "Match the editor process and verify full dirty-state through a discovered read-only schema immediately before graceful close, restart automatically when clean without force-kill escalation, reconnect, inspect MCP logs, and verify the required Toolset without asking for a restart choice.",
+      "expected_output": "Execute the full dirty-state read, graceful matched-editor restart, reconnect, log inspection, and Toolset verification with independent evidence; return a minimal blocker only when dirty-state or graceful restart safety cannot be established; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 7,
       "prompt": "The editor needs a restart but MCP is disconnected and you cannot determine whether assets are unsaved",
-      "expected_output": "Do not assume a clean editor or terminate it. After bounded control-channel checks, return one minimal blocker for the restart attempt requesting save/discard of outstanding changes and confirmation that restart is safe, then resume automation.",
+      "expected_output": "Execute bounded filesystem, process, port, log, and editor-control checks and retain independent evidence; return a minimal blocker only when those checks cannot establish safe dirty-state for the matched restart; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 8,
       "prompt": "Set three object properties; the second write fails",
-      "expected_output": "Treat writes as non-transactional, perform and verify them serially, stop dependent writes after the failure, independently read actual state, and report the partial result and risk.",
+      "expected_output": "Execute serial writes, stop dependent writes after failure, and independently read actual state with independent evidence; return a minimal blocker only when the next required safe action has no available control channel; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     },
     {
       "id": 9,
       "prompt": "Create a UE AgentSkill asset for this project",
-      "expected_output": "List and inspect existing AgentSkills read-only, then request explicit permission before CreateSkill or UpdateSkill because they mutate Blueprint-backed assets.",
+      "expected_output": "Execute read-only AgentSkill inspection and independently verify existing state with independent evidence, then request explicit mutation authorization; return a minimal blocker only when authorization or a safe mutation channel is unavailable; explanation, suggestion, or manual steps alone are not success.",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "Validate the VS Code official schema before configuring this project's client",
+      "expected_output": "Execute inspection of the VS Code official schema, safely merge the root servers entry named unreal-mcp with type http and url, and independently verify the written JSON with independent evidence; return a minimal blocker only when the target configuration cannot be safely read or written; explanation, suggestion, or manual steps alone are not success.",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "This project has an existing per-user editor setting overriding defaults; make MCP work for the current session",
+      "expected_output": "Execute shared-default inspection, preserve the per-user editor setting, recover effective session state through a safe live channel, and independently verify the endpoint with independent evidence; return a minimal blocker only when no safe control channel can recover the effective override; explanation, suggestion, or manual steps alone are not success.",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "The initialize verification failure after safe writes must be handled without rolling back valid configuration",
+      "expected_output": "Execute safe writes, POST initialize verification, retain the written configuration after failure, and independently verify the recovery evidence with independent evidence; return a minimal blocker only when recovery channels cannot perform the next safe action; explanation, suggestion, or manual steps alone are not success.",
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "MCP has Tool Search disabled/eager native tools instead of list_toolsets; continue the editor task",
+      "expected_output": "Execute native-schema discovery, safely restore Tool Search when possible or use the eager native tools, and independently verify the editor result with independent evidence; return a minimal blocker only when neither discovery surface can safely perform the task; explanation, suggestion, or manual steps alone are not success.",
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "A Codex TOML protected blocker exists while configuring Unreal MCP",
+      "expected_output": "Execute read-only protected-config inspection, preserve the existing Codex TOML, and independently verify the unchanged file with independent evidence; return a minimal blocker only when that protected file prevents the required safe configuration action; explanation, suggestion, or manual steps alone are not success.",
       "files": []
     }
   ]
