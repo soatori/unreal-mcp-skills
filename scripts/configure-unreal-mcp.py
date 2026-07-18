@@ -16,7 +16,7 @@ CLIENTS = ("claude", "codex", "cursor", "vscode", "gemini")
 CORE_PLUGINS = ("ModelContextProtocol", "ToolsetRegistry")
 COMMON_TOOLSET_PLUGINS = ("EditorToolset", "AutomationTestToolset", "LiveCodingToolset")
 ALL_TOOLSET_PLUGINS = ("AllToolsets",)
-INI_SECTION = "/Script/ModelContextProtocol.ModelContextProtocolSettings"
+INI_SECTION = "/Script/ModelContextProtocolEngine.ModelContextProtocolSettings"
 
 
 def parse_args() -> argparse.Namespace:
@@ -135,37 +135,57 @@ def set_ini_value(lines: list[str], section: str, key: str, value: str) -> None:
         return
 
     insert_at = len(lines)
+    matching_indexes: list[int] = []
     for index in range(section_index + 1, len(lines)):
         stripped = lines[index].strip()
         if stripped.startswith("[") and stripped.endswith("]"):
             insert_at = index
             break
         if lines[index].split("=", 1)[0].strip() == key and "=" in lines[index]:
-            lines[index] = f"{key}={value}"
-            return
+            matching_indexes.append(index)
+    if matching_indexes:
+        lines[matching_indexes[0]] = f"{key}={value}"
+        for index in reversed(matching_indexes[1:]):
+            del lines[index]
+        return
     lines.insert(insert_at, f"{key}={value}")
 
 
+def remove_ini_value(lines: list[str], section: str, key: str) -> None:
+    section_line = f"[{section}]"
+    section_index = next((i for i, line in enumerate(lines) if line.strip() == section_line), -1)
+    if section_index < 0:
+        return
+    section_end = next(
+        (index for index in range(section_index + 1, len(lines)) if lines[index].strip().startswith("[") and lines[index].strip().endswith("]")),
+        len(lines),
+    )
+    for index in range(section_end - 1, section_index, -1):
+        if "=" in lines[index] and lines[index].split("=", 1)[0].strip() == key:
+            del lines[index]
+
+
 def configure_editor_settings(project_root: Path, port: int, dry_run: bool) -> None:
-    engine_ini = project_root / "Config" / "DefaultEngine.ini"
-    lines = engine_ini.read_text(encoding="utf-8").splitlines() if engine_ini.exists() else []
+    settings_ini = project_root / "Config" / "DefaultEditorPerProjectUserSettings.ini"
+    lines = settings_ini.read_text(encoding="utf-8").splitlines() if settings_ini.exists() else []
 
     set_ini_value(lines, INI_SECTION, "bAutoStartServer", "True")
     set_ini_value(lines, INI_SECTION, "ServerPortNumber", str(port))
-    set_ini_value(lines, INI_SECTION, "ServerURLPath", "/mcp")
+    remove_ini_value(lines, INI_SECTION, "ServerURLPath")
+    set_ini_value(lines, INI_SECTION, "ServerUrlPath", "/mcp")
     set_ini_value(lines, INI_SECTION, "bEnableToolSearch", "True")
 
-    show_plan(f"Configure Unreal MCP editor settings in {engine_ini}", dry_run)
+    show_plan(f"Configure Unreal MCP editor settings in {settings_ini}", dry_run)
     if not dry_run:
-        engine_ini.parent.mkdir(parents=True, exist_ok=True)
-        engine_ini.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        settings_ini.parent.mkdir(parents=True, exist_ok=True)
+        settings_ini.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def merge_mcp_json_config(path: Path, server_entry: dict[str, Any], dry_run: bool) -> None:
+def merge_mcp_json_config(path: Path, root_key: str, server_entry: dict[str, Any], dry_run: bool) -> None:
     config = read_json(path)
-    servers = config.setdefault("mcpServers", {})
+    servers = config.setdefault(root_key, {})
     if not isinstance(servers, dict):
-        fail(f"mcpServers must be an object in {path}")
+        fail(f"{root_key} must be an object in {path}")
     servers["unreal-mcp"] = server_entry
     show_plan(f"Merge unreal-mcp server into {path}", dry_run)
     write_json(path, config, dry_run)
@@ -174,8 +194,8 @@ def merge_mcp_json_config(path: Path, server_entry: dict[str, Any], dry_run: boo
 def write_codex_config(path: Path, url: str, dry_run: bool) -> None:
     if path.exists():
         fail(
-            f"Codex config already exists at '{path}'. UE's Codex TOML generation is write-once; "
-            "delete or edit the stale file manually before regenerating."
+            f"Protected configuration blocker: Codex config already exists at '{path}'. "
+            "UE's Codex TOML generation is write-once, so it was left unchanged."
         )
     show_plan(f"Create Codex MCP config at {path}", dry_run)
     if not dry_run:
@@ -185,13 +205,13 @@ def write_codex_config(path: Path, url: str, dry_run: bool) -> None:
 
 def configure_client(project_root: Path, client: str, url: str, dry_run: bool) -> None:
     if client == "claude":
-        merge_mcp_json_config(project_root / ".mcp.json", {"type": "http", "url": url, "disabled": False}, dry_run)
+        merge_mcp_json_config(project_root / ".mcp.json", "mcpServers", {"type": "http", "url": url, "disabled": False}, dry_run)
     elif client == "cursor":
-        merge_mcp_json_config(project_root / ".cursor" / "mcp.json", {"url": url}, dry_run)
+        merge_mcp_json_config(project_root / ".cursor" / "mcp.json", "mcpServers", {"url": url}, dry_run)
     elif client == "vscode":
-        merge_mcp_json_config(project_root / ".vscode" / "mcp.json", {"url": url}, dry_run)
+        merge_mcp_json_config(project_root / ".vscode" / "mcp.json", "servers", {"type": "http", "url": url}, dry_run)
     elif client == "gemini":
-        merge_mcp_json_config(project_root / ".gemini" / "settings.json", {"httpUrl": url}, dry_run)
+        merge_mcp_json_config(project_root / ".gemini" / "settings.json", "mcpServers", {"httpUrl": url}, dry_run)
     elif client == "codex":
         write_codex_config(project_root / ".codex" / "config.toml", url, dry_run)
     else:
@@ -240,8 +260,8 @@ def main() -> int:
     codex_path = project_root / ".codex" / "config.toml"
     if "codex" in clients and codex_path.exists():
         fail(
-            f"Codex config already exists at '{codex_path}'. UE's Codex TOML generation is write-once; "
-            "delete or edit the stale file manually before regenerating. No changes were written."
+            f"Protected configuration blocker: Codex config already exists at '{codex_path}'. "
+            "UE's Codex TOML generation is write-once, so it was left unchanged. No changes were written."
         )
 
     if not args.skip_enable_plugins:
