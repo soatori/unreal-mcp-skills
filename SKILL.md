@@ -1,6 +1,6 @@
 ---
 name: unreal-mcp
-description: Use when a task targets Unreal Editor 5.8+ through Epic's official MCP, or when its MCP connection, Toolsets, schemas, plugins, or editor state are unavailable, stale, or incomplete.
+description: Use when a task targets Unreal Editor 5.8+ through Epic's official MCP, when a third-party Unreal MCP stack such as chongdashu/unreal-mcp must be identified or mapped to official Toolsets, or when its MCP connection, Toolsets, schemas, plugins, or editor state are unavailable, stale, or incomplete.
 ---
 
 # Unreal MCP Agent Automation
@@ -180,6 +180,7 @@ Read `references/uasset-read-comparison.md` for parser comparisons. MCP is edito
 - Tool Search meta-tools are editor-only.
 - Adding a new reflected `UFUNCTION` requires an editor restart; Live Coding alone is insufficient.
 - Refresh tools after Python/C++ Toolset registration, hot reload, or Game Feature activation.
+- Third-party Unreal MCP stacks such as `chongdashu/unreal-mcp` use fixed tool names, stdio transport, and a TCP bridge; they are not Tool Search / ToolsetRegistry sessions. Identify the live stack before discovery — see `references/third-party-ecosystem.md`.
 
 ## References
 
@@ -187,3 +188,4 @@ Read `references/uasset-read-comparison.md` for parser comparisons. MCP is edito
 - `references/mcp-tools.md`: detailed Toolset map, schemas, console commands, and implementation limits.
 - `references/find-editor-installations.md`: installation discovery used by launch/restart automation.
 - `references/uasset-read-comparison.md`: editor-side comparison workflow for `uasset_read`.
+- `references/third-party-ecosystem.md`: third-party stack identification, tool mapping, decision matrix, and client-config boundaries.
