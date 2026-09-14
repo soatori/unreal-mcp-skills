@@ -1,6 +1,6 @@
 # Unreal MCP Tools Reference
 
-Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` / Unreal MCP path only.
+Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` / Unreal MCP path. For the third-party `chongdashu/unreal-mcp` stack, use `references/third-party-ecosystem.md` instead of inventing official Toolset names.
 
 Primary evidence should come from the live editor schemas returned by `describe_toolset`, local UE source, and Epic documentation. Public orientation sources:
 
@@ -471,5 +471,6 @@ Keep these public examples out of the official UE MCP capability model:
 |---|---|---|
 | Jianying/CapCut MCP projects | General automation patterns and the need to distinguish runtime control from file/API wrappers | Toolset names, Unreal Editor capabilities, or official `ModelContextProtocol` behavior |
 | Third-party Unreal MCP projects | Task ideas such as level generation, viewport verification, Blueprint automation, and project analysis | Replacement for official Tool Search, ToolsetRegistry, or schemas returned by `describe_toolset` |
+| [chongdashu/unreal-mcp](https://github.com/chongdashu/unreal-mcp) | Stack identification, fixed tool-name families, stdio + TCP 55557 transport, and UE 5.5+ plugin layout | Official Tool Search, ToolsetRegistry schemas, or Epic `ModelContextProtocol` behavior |
 
-If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. Official Unreal MCP controls the Unreal Editor, not Jianying/CapCut.
+If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. Official Unreal MCP controls the Unreal Editor, not Jianying/CapCut. If the live project uses `chongdashu/unreal-mcp`, follow `references/third-party-ecosystem.md` for identification and mapping; do not treat its tool names as official Toolsets.
