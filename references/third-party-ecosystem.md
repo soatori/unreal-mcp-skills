@@ -71,7 +71,7 @@ Stdio payload shape:
 }
 ```
 
-Do not extend `scripts/configure-unreal-mcp.py` to write third-party configs in this feature.
+Do not extend `scripts/configure-unreal-mcp.py` to write third-party configs.
 
 ## Safety Boundaries
 
