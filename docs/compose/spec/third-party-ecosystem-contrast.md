@@ -76,21 +76,21 @@ Document this table in the new reference. Official column is a **capability
 baseline**, not a guaranteed live schema — the agent still must
 `list_toolsets` / `describe_toolset` before calling official tools.
 
-| Third-party family / tool | Official Toolset baseline |
+| Third-party module / tool | Official Toolset baseline |
 |---|---|
-| `actor_tools` — `get_actors_in_level`, `find_actors_by_name` | `editor_toolset.toolsets.scene.SceneTools` (find actors) |
-| `actor_tools` — `create_actor`, `delete_actor` | `editor_toolset.toolsets.scene.SceneTools` (add/remove actors) |
-| `actor_tools` — `set_actor_transform`, `get_actor_properties` | `editor_toolset.toolsets.actor.ActorTools` |
+| `editor_tools` — `get_actors_in_level`, `find_actors_by_name` | `editor_toolset.toolsets.scene.SceneTools` (find actors) |
+| `editor_tools` — `spawn_actor`, `delete_actor` | `editor_toolset.toolsets.scene.SceneTools` (add/remove actors) |
+| `editor_tools` — `set_actor_transform`, `get_actor_properties`, `set_actor_property` | `editor_toolset.toolsets.actor.ActorTools` |
+| `editor_tools` — `spawn_blueprint_actor` | `editor_toolset.toolsets.scene.SceneTools` + Blueprint spawn |
 | `blueprint_tools` — `create_blueprint`, `compile_blueprint` | `editor_toolset.toolsets.blueprint.BlueprintTools` |
-| `blueprint_tools` — `add_component_to_blueprint`, `set_component_property` | `editor_toolset.toolsets.blueprint.BlueprintTools` (components) |
-| `blueprint_tools` — `spawn_blueprint_actor` | `editor_toolset.toolsets.scene.SceneTools` + Blueprint spawn |
+| `blueprint_tools` — `add_component_to_blueprint`, `set_component_property`, `set_static_mesh_properties`, `set_physics_properties` | `editor_toolset.toolsets.blueprint.BlueprintTools` (components) |
 | `node_tools` — `add_blueprint_event_node`, `add_blueprint_function_node`, `connect_blueprint_nodes`, `find_blueprint_nodes` | `editor_toolset.toolsets.blueprint.BlueprintTools` (graph authoring and inspection; read path: `find_nodes`, `get_node_infos`, `get_connected_subgraph`) |
 | `node_tools` — `add_blueprint_variable`, `add_blueprint_self_reference`, `add_blueprint_get_self_component_reference` | Blueprint variables and self/component reference nodes under `BlueprintTools` |
-| `node_tools` — `create_input_mapping` | Project input config, not a 1:1 Toolset; treat as project-file work |
-| `editor_tools` — `focus_viewport` | `EditorToolset.EditorAppToolset` (camera / focus) |
-| `editor_tools` — `take_screenshot` | `EditorToolset.EditorAppToolset` (viewport/editor screenshot) |
+| `project_tools` — `create_input_mapping` | Project input config, not a 1:1 Toolset; treat as project-file work |
+| `editor_tools` — `focus_viewport` | Present in source but currently unregistered (`@mcp.tool()` commented out as buggy). Official baseline: `EditorToolset.EditorAppToolset` (camera / focus) |
 | `umg_tools` | `UMGToolSet` |
-| `project_tools` | `ConfigSettingsToolset` for settings; remaining project file ops via filesystem tools |
+
+Upstream Docs/Tools/*.md can lag the Python tool modules; prefer the registered `@mcp.tool()` surface as source of truth.
 
 Never invent a third-party tool name that is not in the upstream docs, and never
 substitute a third-party name for an official live schema.
@@ -102,7 +102,7 @@ substitute a third-party name for an official live schema.
 | UE 5.8+ with official plugins enabled | Official (default for this skill) |
 | UE 5.5–5.7 without `ModelContextProtocol` | Third-party if installed; otherwise no MCP control |
 | Live Coding, Automation Tests, PCG, GAS, Game Features, StateTree | Official only |
-| Simple actor place/move, viewport focus/screenshot, basic Blueprint create/compile/spawn, UMG widget skeleton | Either; follow whichever is live |
+| Basic actor place/move, Blueprint create/compile/spawn, UMG widget skeleton | Either; follow whichever is live |
 | Client is Windsurf or Claude Desktop | Follow the **live** stack. Official HTTP MCP can serve these clients if already configured manually; the official configure script merely does not generate their configs. Prefer third-party only when that plugin is the live server. |
 
 ### S2.4 Client configuration (third-party only)
@@ -115,7 +115,7 @@ shape and these locations:
 |---|---|---|
 | Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | Anthropic official path. Upstream README's `~/.config/claude-desktop/mcp.json` is Linux-style and must not be ported to `%USERPROFILE%` |
 | Cursor | `.cursor/mcp.json` (project root) | Same file name as official, different payload |
-| Windsurf | `%USERPROFILE%\.codeium\windsurf\mcp_config.json` | Not in official configure targets |
+| Windsurf | `%USERPROFILE%\.codeium\windsurf\mcp_config.json` | Not in official configure targets. Upstream README may document a different Windsurf path; verify the live client config location. |
 
 Payload shape:
 
