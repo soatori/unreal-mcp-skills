@@ -181,6 +181,7 @@ Read `references/uasset-read-comparison.md` for parser comparisons. MCP is edito
 - Adding a new reflected `UFUNCTION` requires an editor restart; Live Coding alone is insufficient.
 - Refresh tools after Python/C++ Toolset registration, hot reload, or Game Feature activation.
 - Third-party Unreal MCP stacks such as `chongdashu/unreal-mcp` use fixed tool names, stdio transport, and a TCP bridge; they are not Tool Search / ToolsetRegistry sessions. Identify the live stack before discovery — see `references/third-party-ecosystem.md`.
+- Live `describe_toolset` schemas beat handbook names and parameter styles. EditorApp/Plugin/Config Toolsets often use camelCase parameters and stricter required fields than Scene/Blueprint Python tools. See `references/mcp-tools.md` § Observed local call-shape pitfalls before forming arguments.
 
 ## References
 
