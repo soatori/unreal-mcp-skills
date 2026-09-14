@@ -3,7 +3,7 @@ feature: third-party-ecosystem-contrast
 status: delivered
 updated: 2026-09-15
 branch: feat/third-party-contrast
-commits: c6b430b..4a5be17
+commits: c6b430b..efa7af2
 ---
 
 # Third-Party Ecosystem Contrast
@@ -12,7 +12,7 @@ commits: c6b430b..4a5be17
 
 **What was built** — Added a third-party Unreal MCP contrast layer beside the official Epic path. New `references/third-party-ecosystem.md` covers stack identification (HTTP Tool Search vs stdio+TCP 55557), tool-name mapping to official Toolset baselines, a decision matrix for which stack to follow, and Windows client configs (Claude Desktop `%APPDATA%\Claude\claude_desktop_config.json`, Cursor, Windsurf). Linked from `mcp-tools.md` preamble + Public Case Boundary (chongdashu named), `SKILL.md` description/Runtime Boundaries/References, and a README note. Official automation contract, configure script, tests, and evals unchanged.
 
-**Verification** — `python scripts/validate-skill.py` exit 0 (`Skill validation passed.`); `python -m unittest discover -s tests` 36/36 OK; cross-file link/token check PASS; task review Spec ✅ Approved; final whole-branch review Important (temporal phrasing) fixed in `4a5be17` and scoped re-review ADDRESSED.
+**Verification** — `python scripts/validate-skill.py` exit 0 (`Skill validation passed.`); `python -m unittest discover -s tests` 36/36 OK; cross-file link/token check PASS; task review Spec ✅ Approved; final whole-branch review Important (temporal phrasing) fixed in `4a5be17`; independent accuracy review found invented tool names relative to upstream Python (`create_actor`→`spawn_actor`, drop `take_screenshot`, reattribute families) fixed in `efa7af2` with scoped re-review 8/8 ADDRESSED.
 
 **Journey log**
 - Claude Desktop Windows path is `%APPDATA%\Claude\claude_desktop_config.json` — do not port upstream Linux `~/.config/claude-desktop/mcp.json` to `%USERPROFILE%`.
@@ -20,6 +20,7 @@ commits: c6b430b..4a5be17
 - Tool Mapping official-column naming mix mirrors existing `mcp-tools.md` Toolset map — not a new inconsistency.
 - SKILL.md frontmatter `description` is the activation gate; reference-only content will not trigger on third-party-only projects.
 - Plan check scripts with over-escaped Windows paths (`\\` vs `\`) create false negatives; prefer single-backslash literals.
+- Upstream `Docs/Tools/*.md` in chongdashu/unreal-mcp can lag `Python/tools/*.py`; the registered `@mcp.tool()` surface is source of truth. Spec tables that quote third-party tools must be spot-checked against that surface before merge.
 
 ## [S1] Problem
 
