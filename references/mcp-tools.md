@@ -452,6 +452,19 @@ Observed local call-shape pitfalls:
 - `EditorToolset.LogsToolset.GetLogEntries` may default `category` to a missing category; pass `category: ""` for all logs.
 - `AutomationTestToolset.DiscoverTests` can emit UE warnings before useful JSON state is available. Follow with `ListTests` or inspect logs before treating the session as failed.
 
+Live-verified call shapes (UE 5.8 official MCP, Tool Search on; always re-check `describe_toolset` — these are baselines, not frozen contracts):
+
+- Parameter naming is mixed across Toolsets. Python Scene/Blueprint/Asset tools often use snake_case (`folder_path`, `blueprint`, `graph`, `title`). EditorApp, Plugin, and ConfigSettings Toolsets often use camelCase (`pluginName`, `containerName`, `categoryName`, `captureTransform`, `propertyNames`, `nameFilter`). Form arguments from the live schema, not from a neighboring Toolset's style.
+- Invented short names fail with `Unknown tool`. Live examples that do **not** exist: `GetPIEState` (use `IsPIERunning`), `ListPlugins` (use `ListEnabledPlugins` / `ListDiscoveredPlugins`), `ListConfigSections` (use `ListSections` after `ListContainers` and `ListCategories`), `get_transform` / `get_actor_properties` (use `get_actor_transform`).
+- Several EditorApp tools require arguments even when the conceptual operation looks parameterless. `CaptureViewport` required both `captureTransform` and `annotations` in the live schema; omitting either returned a schema error. Prefer `describe_toolset` over guessing defaults.
+- `EditorToolset.LogsToolset.GetLogCategories` required `filter` (empty string lists all). Passing `{}` returned a required-param error.
+- `AutomationTestToolset.AutomationTestToolset.ListTests` required an arguments object (live example used `nameFilter`, `tagFilter`, `limit`). `DiscoverTests` first; empty `{}` is not enough when the schema declares required fields.
+- `ConfigSettingsToolset.ConfigSettingsToolset.ListSections` required both `containerName` and `categoryName`. `Editor/Engine` is not a valid pair on a stock project; discover categories via `ListCategories` (observed `Editor` categories: `Advanced`, `ContentEditors`, `General`, `LevelEditor`, `Plugins`, `Privacy`, `Sequencer`). `GetSectionPropertyValues` required `propertyNames`.
+- `editor_toolset.toolsets.asset.AssetTools.find_assets` used `folder_path` (not `path`) plus `name` / `class_names`. Example that worked: `{"folder_path":"/Game/FirstPerson","name":"","class_names":[]}`.
+- Actor Toolset short names observed: `get_actor_transform`, `set_actor_transform`, `get_label`, `set_label`, `get_tags`, `add_tag`, `remove_tag`, `has_tag`, `get_components`, `add_component`, `remove_component`, `get_actor_bounds`, `get_root_component`, `get_parent_component`, `set_parent_component`, `get_component_actor`, `look_at`. Pass actors as `{"actor":{"refPath":"..."}}`.
+- UObject references stay object-shaped: `{"refPath":"/Game/..."}` even when a path string would look sufficient.
+- After every mutation (including selection, camera, config, or PIE), follow with an independent read tool; do not treat a successful `isError:false` write as the final evidence.
+
 ## Companion Skills (Epic Plugin)
 
 The official Epic `unreal-mcp` Claude Code plugin includes two companion skills that may overlap with this skill:
