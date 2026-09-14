@@ -52,6 +52,4 @@ If `list_toolsets` is absent while native Toolset operations or schemas are avai
 
 - [Epic Unreal MCP documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)
 
-## Related Third-Party Stack
-
-This skill targets Epic's official Unreal MCP. The community project [chongdashu/unreal-mcp](https://github.com/chongdashu/unreal-mcp) is a separate C++ plugin plus Python MCP server (UE 5.5+, stdio + TCP 55557). The skill can identify that stack and map its tools to official Toolset baselines via `references/third-party-ecosystem.md`; it does not configure or operate that server. Prefer official MCP on UE 5.8+.
+- Related third-party stack: [chongdashu/unreal-mcp](https://github.com/chongdashu/unreal-mcp) — identification only via `references/third-party-ecosystem.md`; this skill does not operate that server.

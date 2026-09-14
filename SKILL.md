@@ -189,4 +189,4 @@ Read `references/uasset-read-comparison.md` for parser comparisons. MCP is edito
 - `references/mcp-tools.md`: detailed Toolset map, schemas, console commands, and implementation limits.
 - `references/find-editor-installations.md`: installation discovery used by launch/restart automation.
 - `references/uasset-read-comparison.md`: editor-side comparison workflow for `uasset_read`.
-- `references/third-party-ecosystem.md`: third-party stack identification, tool mapping, decision matrix, and client-config boundaries.
+- `references/third-party-ecosystem.md`: third-party stack identification and safety boundaries.

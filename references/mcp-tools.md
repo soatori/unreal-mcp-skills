@@ -1,6 +1,6 @@
 # Unreal MCP Tools Reference
 
-Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` / Unreal MCP path. For the third-party `chongdashu/unreal-mcp` stack, use `references/third-party-ecosystem.md` instead of inventing official Toolset names.
+Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` path; third-party stacks are in `references/third-party-ecosystem.md`.
 
 Primary evidence should come from the live editor schemas returned by `describe_toolset`, local UE source, and Epic documentation. Public orientation sources:
 
@@ -461,7 +461,7 @@ Live-verified call shapes (UE 5.8 official MCP, Tool Search on; always re-check 
 - `AutomationTestToolset.AutomationTestToolset.ListTests` required an arguments object (live example used `nameFilter`, `tagFilter`, `limit`). `DiscoverTests` first; empty `{}` is not enough when the schema declares required fields.
 - `ConfigSettingsToolset.ConfigSettingsToolset.ListSections` required both `containerName` and `categoryName`. `Editor/Engine` is not a valid pair on a stock project; discover categories via `ListCategories` (observed `Editor` categories: `Advanced`, `ContentEditors`, `General`, `LevelEditor`, `Plugins`, `Privacy`, `Sequencer`). `GetSectionPropertyValues` required `propertyNames`.
 - `editor_toolset.toolsets.asset.AssetTools.find_assets` used `folder_path` (not `path`) plus `name` / `class_names`. Example that worked: `{"folder_path":"/Game/FirstPerson","name":"","class_names":[]}`.
-- Actor Toolset short names observed: `get_actor_transform`, `set_actor_transform`, `get_label`, `set_label`, `get_tags`, `add_tag`, `remove_tag`, `has_tag`, `get_components`, `add_component`, `remove_component`, `get_actor_bounds`, `get_root_component`, `get_parent_component`, `set_parent_component`, `get_component_actor`, `look_at`. Pass actors as `{"actor":{"refPath":"..."}}`.
+- Actor tools are short names from `describe_toolset` (e.g. `get_actor_transform`); pass `{"actor":{"refPath":"..."}}`. Do not invent names like `get_transform`.
 - UObject references stay object-shaped: `{"refPath":"/Game/..."}` even when a path string would look sufficient.
 - After every mutation (including selection, camera, config, or PIE), follow with an independent read tool; do not treat a successful `isError:false` write as the final evidence.
 
@@ -486,4 +486,4 @@ Keep these public examples out of the official UE MCP capability model:
 | Third-party Unreal MCP projects | Task ideas such as level generation, viewport verification, Blueprint automation, and project analysis | Replacement for official Tool Search, ToolsetRegistry, or schemas returned by `describe_toolset` |
 | [chongdashu/unreal-mcp](https://github.com/chongdashu/unreal-mcp) | Stack identification, fixed tool-name families, stdio + TCP 55557 transport, and UE 5.5+ plugin layout | Official Tool Search, ToolsetRegistry schemas, or Epic `ModelContextProtocol` behavior |
 
-If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. Official Unreal MCP controls the Unreal Editor, not Jianying/CapCut. If the live project uses `chongdashu/unreal-mcp`, follow `references/third-party-ecosystem.md` for identification and mapping; do not treat its tool names as official Toolsets.
+If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. For `chongdashu/unreal-mcp`, see `references/third-party-ecosystem.md`; do not treat its tool names as official Toolsets.
