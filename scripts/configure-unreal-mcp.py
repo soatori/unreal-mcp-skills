@@ -10,7 +10,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 
 CLIENTS = ("claude", "codex", "cursor", "vscode", "gemini")
@@ -34,10 +34,9 @@ class ProtectedConfigBlocker(RuntimeError):
     """A write-once client configuration prevents an atomic configure run."""
 
 
-class VerificationOutcome:
-    def __init__(self, ok: bool, evidence: str) -> None:
-        self.ok = ok
-        self.evidence = evidence
+class VerificationOutcome(NamedTuple):
+    ok: bool
+    evidence: str
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,8 +50,6 @@ def parse_args() -> argparse.Namespace:
         help="Client target to configure.",
     )
     parser.add_argument("-Port", "--port", type=int, default=8000, help="Unreal MCP server port.")
-    parser.add_argument("-AutoStart", "--auto-start", action="store_true", help="Write Auto Start defaults. Default behavior already writes them.")
-    parser.add_argument("-EnablePlugins", "--enable-plugins", action="store_true", help="Enable core MCP plugins. Default behavior already enables them.")
     parser.add_argument(
         "-ToolsetProfile",
         "--toolset-profile",
@@ -269,17 +266,6 @@ def configure_client(project_root: Path, client: str, url: str, dry_run: bool) -
         fail(f"Unsupported client: {client}")
 
 
-def editor_client_name(target: str) -> str:
-    return {
-        "claude": "ClaudeCode",
-        "codex": "Codex",
-        "cursor": "Cursor",
-        "vscode": "VSCode",
-        "gemini": "Gemini",
-        "all": "All",
-    }[target]
-
-
 def _parse_initialize_payload(body: bytes, content_type: str) -> dict[str, Any]:
     media_type = content_type.lower().split(";", 1)[0].strip()
     if media_type not in {"application/json", "text/event-stream"}:
@@ -316,7 +302,7 @@ def _validate_initialize_payload(payload: dict[str, Any]) -> VerificationOutcome
 
 
 def verify_server(url: str, project_root: Path, port: int) -> VerificationOutcome:
-    del project_root, port
+    del project_root, port  # kept for the public helper signature used by tests
     request = urllib.request.Request(
         url,
         data=json.dumps(INITIALIZE_REQUEST).encode("utf-8"),
