@@ -17,8 +17,6 @@ Targets are `claude`, `codex`, `cursor`, `vscode`, `gemini`, and `all`.
 Important switches:
 
 - `-DryRun` or `--dry-run`: print planned file changes without writing. Use this first.
-- `-EnablePlugins` or `--enable-plugins`: retained for compatibility; core plugins and the selected Toolset profile are enabled by default.
-- `-AutoStart` or `--auto-start`: retained for compatibility; Auto Start defaults are written by default.
 - `-ToolsetProfile core|common|all` or `--toolset-profile core|common|all`: choose which Toolset plugin set to enable. Default is `common`.
 - `--skip-enable-plugins`: skip `.uproject` plugin edits.
 - `--skip-auto-start`: skip `Config/DefaultEditorPerProjectUserSettings.ini` MCP settings edits.
@@ -26,7 +24,7 @@ Important switches:
 - `-Target <client>` or `--target <client>`: selects the client config to write. Every target also configures the UE project by default.
 - `-Target all` or `--target all`: configures the UE project and all supported clients.
 
-The script is Python and cross-platform. It accepts the UE-style `-ProjectPath`, `-Target`, `-Port`, `-DryRun`, `-EnablePlugins`, `-AutoStart`, and `-Verify` flags, plus lowercase GNU-style aliases.
+The script is Python and cross-platform. It accepts the UE-style `-ProjectPath`, `-Target`, `-Port`, `-DryRun`, and `-Verify` flags, plus lowercase GNU-style aliases.
 
 ## What The Script Changes
 

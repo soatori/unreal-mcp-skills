@@ -51,3 +51,5 @@ If `list_toolsets` is absent while native Toolset operations or schemas are avai
 ## Official Reference
 
 - [Epic Unreal MCP documentation](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)
+
+- Related third-party stack: [chongdashu/unreal-mcp](https://github.com/chongdashu/unreal-mcp) — identification only via `references/third-party-ecosystem.md`; this skill does not operate that server.

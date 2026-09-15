@@ -1,6 +1,6 @@
 # Unreal MCP Tools Reference
 
-Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` / Unreal MCP path only.
+Use this reference after `SKILL.md` triggers and the task needs concrete MCP tool, Toolset, configuration, authoring, or diagnostic details. This reference covers Epic's official `ModelContextProtocol` path; third-party stacks are in `references/third-party-ecosystem.md`.
 
 Primary evidence should come from the live editor schemas returned by `describe_toolset`, local UE source, and Epic documentation. Public orientation sources:
 
@@ -199,22 +199,6 @@ These plugins exist in the UE source under `Engine/Plugins/Experimental/Toolsets
 Enable Toolset plugins according to the task. `AllToolsets` can be useful for broad discovery or prototyping, but it aggregates many experimental plugins and can increase startup cost, schema noise, and mutation risk. Whether using focused Toolsets or `AllToolsets`, verify the live list before calling anything.
 
 For GAS, Gameplay Tags, Game Features, StateTree, World Conditions, Niagara, UMG, MVVM, Slate Inspector, Dataflow, Physics, Chaos Cloth, Animation, Conversation, MetaHuman, Semantic Search, or any other specialized task, first verify the corresponding Toolset is present, then use `describe_toolset` for exact schemas. Do not infer individual tool names from the category name alone.
-
-## Concrete Control Surface
-
-Use this section only to choose a domain before calling `describe_toolset`.
-
-| Domain | Controllable content |
-|---|---|
-| Editor/App | Search CVars, capture editor or viewport images, select Actors/assets, read or set editor camera transform, focus camera, convert world/screen coordinates, read or set Content Browser path, open assets, list open assets, inspect PIE state |
-| Logs | Read current session entries, list categories, get/set verbosity |
-| Scene | Load/current level, collision channels, find Actors, add/remove Actors, folders, traces, merge Actors, level instances, editability/source control, save Actor |
-| Actor/components | Labels, tags, transform, look-at target, root component, owner, parent, attachment, bounds, component list, add/remove component |
-| Assets/files | Folders, asset existence, duplicate/move/delete assets, metadata, dirty/editable/checked-out state, dependencies/referencers, plugin content paths, allowed project/plugin files |
-| Blueprint | Create/compile, parent/CDO, graphs/functions/events, node/pin inspection, Graph DSL, variables, replication/category, event dispatchers, component events |
-| Materials | Create materials/functions/collections, inspect expression classes and pins, connect/disconnect expressions, parameters, material property outputs, recompile |
-| Automation tests | Discover, list, run by names or filters, status, results, stop |
-| Custom tools | Python or C++ Toolsets through Toolset Registry; dynamic runtime tools through direct `IModelContextProtocolModule::AddTool()` registration |
 
 ## Blueprint EventGraph Reading Playbook
 
@@ -442,15 +426,19 @@ Log classification:
 - Blueprint compiler categories: Blueprint graph or compile failures.
 - `LogHttp` requests to `datarouter.ol.epicgames.com`: usually Epic telemetry upload noise. These warnings alone do not prove MCP transport failure.
 
-Observed local call-shape pitfalls:
+### Live call-shape notes
 
-- `call_tool` expects short tool names with `toolset_name`, even if `describe_toolset` returns fully qualified names.
-- Some schemas mark seemingly optional filters as required. Use empty strings or empty arrays only after confirming the schema, for example `find_actors` with `name: ""`, `tag: ""`, and `collision_channels: []`.
+UE 5.8 official MCP, Tool Search on; always re-check `describe_toolset` — these are baselines, not frozen contracts.
+
+- Parameter naming is mixed across Toolsets. Python Scene/Blueprint/Asset tools often use snake_case (`folder_path`, `blueprint`, `graph`, `title`). EditorApp, Plugin, and ConfigSettings Toolsets often use camelCase (`pluginName`, `containerName`, `categoryName`, `captureTransform`, `propertyNames`, `nameFilter`). Form arguments from the live schema, not from a neighboring Toolset's style.
+- `call_tool` expects short tool names with `toolset_name`, even if `describe_toolset` returns fully qualified names. Invented short names fail with `Unknown tool`. Live non-examples: `GetPIEState` (use `IsPIERunning`), `ListPlugins` (use `ListEnabledPlugins` / `ListDiscoveredPlugins`), `ListConfigSections` (use `ListSections` after `ListContainers` and `ListCategories`), `get_transform` / `get_actor_properties` (use `get_actor_transform`).
+- Some schemas mark seemingly optional filters as required. Confirm with the live schema before sending empty strings or arrays. Live examples: `find_actors` with `name: ""`, `tag: ""`, `collision_channels: []`; `GetLogEntries` with `category: ""` (default may be a missing category); `GetLogCategories` required `filter` (empty string lists all; `{}` errors); `CaptureViewport` required both `captureTransform` and `annotations`; `ListTests` required an arguments object (`nameFilter`, `tagFilter`, `limit`); ConfigSettings `ListSections` required `containerName` and `categoryName` (`Editor/Engine` is not a valid pair on a stock project — discover via `ListCategories`; observed `Editor` categories: `Advanced`, `ContentEditors`, `General`, `LevelEditor`, `Plugins`, `Privacy`, `Sequencer`); `GetSectionPropertyValues` required `propertyNames`.
+- `editor_toolset.toolsets.asset.AssetTools.find_assets` used `folder_path` (not `path`) plus `name` / `class_names`. Example that worked: `{"folder_path":"/Game/FirstPerson","name":"","class_names":[]}`.
 - For Blueprint graphs, use graph refs returned by `get_graph` or `list_graphs`, such as `/Game/...Blueprint.Blueprint:EventGraph`. Space-separated graph paths can fail EdGraph validation.
-- `read_graph_dsl` can return an empty string for graphs that still contain nodes. Treat it as an optional decompiler, not the only way to inspect logic.
-- To inspect Blueprint logic reliably, call `find_nodes` with `title: ""`, then pass returned node refs to `get_node_infos`. For one execution chain, call `get_connected_subgraph` with an event/input node ref. These return `input_pins`, `output_pins`, `connected_pins`, node positions, and `type_id`.
-- `EditorToolset.LogsToolset.GetLogEntries` may default `category` to a missing category; pass `category: ""` for all logs.
+- `read_graph_dsl` can return an empty string for graphs that still contain nodes. Treat it as an optional decompiler. On empty/invalid DSL, call `find_nodes` with `title: ""`, then pass returned node refs to `get_node_infos` (`input_pins`, `output_pins`, `connected_pins`, node positions, `type_id`). For one execution chain, call `get_connected_subgraph` with an event/input node ref.
+- UObject references stay object-shaped: `{"refPath":"/Game/..."}` even when a path string would look sufficient. Actor tools take `{"actor":{"refPath":"..."}}`.
 - `AutomationTestToolset.DiscoverTests` can emit UE warnings before useful JSON state is available. Follow with `ListTests` or inspect logs before treating the session as failed.
+- After every mutation (including selection, camera, config, or PIE), follow with an independent read tool; do not treat a successful `isError:false` write as the final evidence.
 
 ## Companion Skills (Epic Plugin)
 
@@ -471,5 +459,6 @@ Keep these public examples out of the official UE MCP capability model:
 |---|---|---|
 | Jianying/CapCut MCP projects | General automation patterns and the need to distinguish runtime control from file/API wrappers | Toolset names, Unreal Editor capabilities, or official `ModelContextProtocol` behavior |
 | Third-party Unreal MCP projects | Task ideas such as level generation, viewport verification, Blueprint automation, and project analysis | Replacement for official Tool Search, ToolsetRegistry, or schemas returned by `describe_toolset` |
+| [chongdashu/unreal-mcp](https://github.com/chongdashu/unreal-mcp) | Stack identification, fixed tool-name families, stdio + TCP 55557 transport, and UE 5.5+ plugin layout | Official Tool Search, ToolsetRegistry schemas, or Epic `ModelContextProtocol` behavior |
 
-If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. Official Unreal MCP controls the Unreal Editor, not Jianying/CapCut.
+If a user asks about Jianying/CapCut control, answer that it is a separate MCP ecosystem. For `chongdashu/unreal-mcp`, see `references/third-party-ecosystem.md`; do not treat its tool names as official Toolsets.

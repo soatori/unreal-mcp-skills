@@ -1,6 +1,6 @@
 ---
 name: unreal-mcp
-description: Use when a task targets Unreal Editor 5.8+ through Epic's official MCP, or when its MCP connection, Toolsets, schemas, plugins, or editor state are unavailable, stale, or incomplete.
+description: Use when a task targets Unreal Editor 5.8+ through Epic's official MCP, when a third-party Unreal MCP stack such as chongdashu/unreal-mcp must be identified or mapped to official Toolsets, or when its MCP connection, Toolsets, schemas, plugins, or editor state are unavailable, stale, or incomplete.
 ---
 
 # Unreal MCP Agent Automation
@@ -160,14 +160,7 @@ The completion report contains: actions performed, verified resulting state, unr
 
 ## Blueprint EventGraph Reading
 
-For Blueprint inspection:
-
-1. Discover `BlueprintTools` and inspect its live schema.
-2. Call `list_graphs`, then `get_graph`, preserving the returned graph `refPath`.
-3. Call `read_graph_dsl` with the exact graph reference.
-4. If it is empty or rejects the path, call `find_nodes` with `title: ""`, then `get_node_infos` for pins/connections.
-5. Use `get_connected_subgraph` from a relevant event/input node for a focused execution chain.
-6. Report execution and data flow separately.
+Discover `BlueprintTools`, inspect its live schema, then follow the JSON playbook in `references/mcp-tools.md` § Blueprint EventGraph Reading Playbook (`list_graphs` → `get_graph` → `read_graph_dsl`; on empty/invalid DSL, `find_nodes` with `title: ""` → `get_node_infos` → `get_connected_subgraph`). Report execution and data flow separately.
 
 An empty DSL is not evidence of an empty graph. When the live schema marks an input as a UObject reference, pass `{ "refPath": "/Game/..." }`, not a bare string.
 
@@ -180,6 +173,8 @@ Read `references/uasset-read-comparison.md` for parser comparisons. MCP is edito
 - Tool Search meta-tools are editor-only.
 - Adding a new reflected `UFUNCTION` requires an editor restart; Live Coding alone is insufficient.
 - Refresh tools after Python/C++ Toolset registration, hot reload, or Game Feature activation.
+- Third-party Unreal MCP stacks such as `chongdashu/unreal-mcp` use fixed tool names, stdio transport, and a TCP bridge; they are not Tool Search / ToolsetRegistry sessions. Identify the live stack before discovery — see `references/third-party-ecosystem.md`.
+- Live `describe_toolset` schemas beat handbook names and parameter styles. EditorApp/Plugin/Config Toolsets often use camelCase parameters and stricter required fields than Scene/Blueprint Python tools. See `references/mcp-tools.md` § Live call-shape notes before forming arguments.
 
 ## References
 
@@ -187,3 +182,4 @@ Read `references/uasset-read-comparison.md` for parser comparisons. MCP is edito
 - `references/mcp-tools.md`: detailed Toolset map, schemas, console commands, and implementation limits.
 - `references/find-editor-installations.md`: installation discovery used by launch/restart automation.
 - `references/uasset-read-comparison.md`: editor-side comparison workflow for `uasset_read`.
+- `references/third-party-ecosystem.md`: third-party stack identification and safety boundaries.

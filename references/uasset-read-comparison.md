@@ -20,16 +20,7 @@ If the user provides only a filesystem `.uasset` path, infer the UE object path 
 
 ## MCP Read Sequence
 
-1. Call `list_toolsets` and confirm Blueprint/editor Toolsets are available.
-2. Call `describe_toolset` for the Blueprint Toolset before forming arguments.
-3. Call `BlueprintTools.list_graphs` for the Blueprint asset.
-4. Call `BlueprintTools.get_graph` for `EventGraph` or the graph requested by the user.
-5. Try `BlueprintTools.read_graph_dsl` using the graph ref returned by `get_graph`.
-6. If Graph DSL is empty or rejected, call `BlueprintTools.find_nodes` with `title: ""`.
-7. Pass all node refs to `BlueprintTools.get_node_infos`.
-8. For a specific execution chain, call `BlueprintTools.get_connected_subgraph` from the event/input node ref.
-
-Do not treat an empty Graph DSL result as proof that the graph is empty.
+Follow `references/mcp-tools.md` § Blueprint EventGraph Reading Playbook for the live JSON calls. Do not treat an empty Graph DSL result as proof that the graph is empty — fall through to `find_nodes` / `get_node_infos` as that playbook specifies.
 
 ## Report Shape
 
