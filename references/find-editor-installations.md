@@ -34,7 +34,7 @@ The script attempts to detect the UE version from:
 
 1. **Build.version file**: Located at `Engine\Build\Build.version`. UE 5.x writes JSON (`MajorVersion` / `MinorVersion` / `PatchVersion`); older builds used one component per line. The script reads JSON first, then falls back to the line format.
 
-2. **Directory name**: If `Build.version` is missing and the directory is named `UE_5.x`, the version is extracted from the name.
+2. **Directory name**: If `Build.version` is missing or unparseable and the directory is named `UE_5.x`, the version is extracted from the name.
 
 ## Usage
 

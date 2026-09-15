@@ -426,7 +426,9 @@ Log classification:
 - Blueprint compiler categories: Blueprint graph or compile failures.
 - `LogHttp` requests to `datarouter.ol.epicgames.com`: usually Epic telemetry upload noise. These warnings alone do not prove MCP transport failure.
 
-Live call-shape notes (UE 5.8 official MCP, Tool Search on; always re-check `describe_toolset` — these are baselines, not frozen contracts):
+### Live call-shape notes
+
+UE 5.8 official MCP, Tool Search on; always re-check `describe_toolset` — these are baselines, not frozen contracts.
 
 - Parameter naming is mixed across Toolsets. Python Scene/Blueprint/Asset tools often use snake_case (`folder_path`, `blueprint`, `graph`, `title`). EditorApp, Plugin, and ConfigSettings Toolsets often use camelCase (`pluginName`, `containerName`, `categoryName`, `captureTransform`, `propertyNames`, `nameFilter`). Form arguments from the live schema, not from a neighboring Toolset's style.
 - `call_tool` expects short tool names with `toolset_name`, even if `describe_toolset` returns fully qualified names. Invented short names fail with `Unknown tool`. Live non-examples: `GetPIEState` (use `IsPIERunning`), `ListPlugins` (use `ListEnabledPlugins` / `ListDiscoveredPlugins`), `ListConfigSections` (use `ListSections` after `ListContainers` and `ListCategories`), `get_transform` / `get_actor_properties` (use `get_actor_transform`).
